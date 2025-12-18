@@ -12,9 +12,6 @@ def main():
     args = parser.parse_args()
 
     # Initialize components
-    # NOTE: Set OPENAI_API_KEY env var or mock it for this test if needed.
-    # For this verification, we are using a real client structure but maybe a mock if no key.
-    # But let's assume valid key or gracefull failure.
     llm_client = OpenAIClient(temperature=0.0)
     env = MockAlfworldEnv()
     
