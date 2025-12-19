@@ -5,8 +5,8 @@ class ReActAgent(BaseAgent):
     """
     Standard ReAct Agent.
     """
-    def __init__(self, llm_client, env):
-        super().__init__(llm_client, env)
+    def __init__(self, llm_client):
+        super().__init__(llm_client)
         
         # ACE playbook to be injected if needed
         self.playbook = "" 

@@ -1,4 +1,4 @@
-USER:
+<user>
 I am your supervisor, and you are an AI Assistant whose job is to complete my day-to-day tasks fully autonomously.
 
 To do this, you will need to interact with app(s) (e.g., spotify, venmo etc) using their associated APIs on my behalf. For this you will undertake a *multi-step conversation* using a python REPL environment. That is, you will write the python code, the environment will execute it and show you the result, based on which, you will write python code for the next step and so on, until you've achieved the goal. This environment will let you interact with app(s) using their associated APIs on my behalf.
@@ -23,19 +23,23 @@ print(apis.api_docs.show_api_descriptions(app_name='spotify'))
 print(apis.api_docs.show_api_doc(app_name='spotify', api_name='login'))
 ```
 
-Each code execution will produce an output that you can use in subsequent calls. Using these APIs, you can now generate code, that I will execute, to solve the task. Let's start with the task
+Each code execution will produce an output that you can use in subsequent calls. Using these APIs, you can now generate code, that I will execute, to solve the task.
+</user>
 
+<task trajectory example>
+User: 
 My name is: {{ main_user.first_name }} {{ main_user.last_name }}. My personal email is {{ main_user.email }} and phone number is {{ main_user.phone_number }}.
 Task: How many playlists do I have in my Spotify playlist library?
 
-ASSISTANT:
+ASSISTANT (thought):
 Okay. Let's first find which APIs are available to use in Spotify.
 
+ASSISTANT (action; tool_call):
 ```python
 print(apis.api_docs.show_api_descriptions(app_name='spotify'))
 ```
 
-USER:
+Environment (tool_call_output):
 Output:
 ```
 [
@@ -46,14 +50,15 @@ Output:
 ]
 ```
 
-ASSISTANT:
+ASSISTANT (thought):
 Okay. Looks like I can use the `login` api. Let's find its specifications.
 
+ASSISTANT (action; tool_call):
 ```python
 print(apis.api_docs.show_api_doc(app_name='spotify', api_name='login'))
 ```
 
-USER:
+Environment (tool_call_output):
 Output:
 ```
 {
@@ -92,27 +97,29 @@ Output:
 }
 ```
 
-ASSISTANT:
+ASSISTANT (thought):
 I need the supervisor's username and password. Let's see if any app can help me get that.
 
+ASSISTANT (action; tool_call):
 ```python
 print(apis.api_docs.show_app_descriptions())
 ```
 
-USER:
+Environment (tool_call_output):
 Output:
 ```
 {{ app_descriptions }}
 ```
 
-ASSISTANT:
+ASSISTANT (thought):
 Looks like the supervisor app could help me with that.
 
+ASSISTANT (action; tool_call):
 ```python
 print(apis.api_docs.show_api_descriptions(app_name='supervisor'))
 ```
 
-USER:
+Environment (tool_call_output):
 Output:
 ```
 [
@@ -122,15 +129,16 @@ Output:
 ]
 ```
 
-ASSISTANT:
+ASSISTANT (thought):
 I can use `show_account_passwords` to get the passwords. So I will call that and save it in a variable for future reference.
 
+ASSISTANT (action; tool_call):
 ```python
 passwords=apis.supervisor.show_account_passwords()
 print(passwords)
 ```
 
-USER:
+Environment (tool_call_output):
 Output:
 ```
 [
@@ -146,16 +154,17 @@ Output:
 ]
 ```
 
-ASSISTANT:
+ASSISTANT (thought):
 So the Spotify password is an entry in the `passwords` list with the account_name=spotify. I can use it to login now with the provided email address: {{ main_user.email }}.
 
+ASSISTANT (action; tool_call):
 ```python
 spotify_password = [account_password["account_name"] == "spotify" for account_password in passwords][0]["password"]
 login_result = apis.spotify.login(username='{{ main_user.email }}', password=spotify_password)
 print(login_result)
 ```
 
-USER:
+Environment (tool_call_output):
 Output:
 ```
 {
@@ -164,14 +173,15 @@ Output:
 }
 ```
 
-ASSISTANT:
+ASSISTANT (thought):
 First, let's check the available APIs for the Spotify app.
 
+ASSISTANT (action; tool_call):
 ```python
 print(apis.api_docs.show_api_descriptions(app_name='spotify'))
 ```
 
-USER:
+Environment (tool_call_output):
 Output:
 ```
 [
@@ -188,14 +198,15 @@ Output:
 ]
 ```
 
-ASSISTANT:
+ASSISTANT (thought):
 The `show_playlist_library` API seems to be the one we need. Let's check its specifications.
 
+ASSISTANT (action; tool_call):
 ```python
 print(apis.api_docs.show_api_doc(app_name='spotify', api_name='show_playlist_library'))
 ```
 
-USER:
+Environment (tool_call_output):
 Output:
 ```
 {
@@ -284,9 +295,10 @@ Output:
 }
 ```
 
-ASSISTANT:
+ASSISTANT (thought):
 I need to page through all the playlists to get the list of playlists and save it in `playlists`.
 
+ASSISTANT (action; tool_call):
 ```python
 page_index = 0
 playlists = []
@@ -301,24 +313,22 @@ num_playlists = len(playlists)
 print(num_playlists)
 ```
 
-USER:
+Environment (tool_call_output):
 Output:
 ```
 23
 ```
 
-ASSISTANT:
+ASSISTANT (thought):
 Now that the task is completed, I can call apis.supervisor.complete_task(). Since this task has an answer to be returned, I will pass that as an argument.
 
+ASSISTANT (action; tool_call):
 ```python
 apis.supervisor.complete_task(answer=num_playlists)
 ```
+</task trajectory example>
 
-USER:
-Output:
-Marked the active task complete.
-
-USER:
+<user>
 **Key instructions**:
 
 A. General instructions:
@@ -365,9 +375,4 @@ When the answer is given:
   E.g., for the song title of the current playing track, return just the title.
 - Numbers must be numeric and not in words.
   E.g., for the number of songs in the queue, return "10", not "ten".
-
-USER:
-Using these APIs, now generate code to solve the actual task:
-
-My name is: {{ main_user.first_name }} {{ main_user.last_name }}. My personal email is {{ main_user.email }} and phone number is {{ main_user.phone_number }}.
-Task: {{ instruction }}
+</user>

@@ -1,3 +1,5 @@
+from typing import List
+
 class BaseMessage:
     def __init__(
         self, 
@@ -81,3 +83,17 @@ class ToolCallOutputMessage:
     
     def __repr__(self):
         return f"ToolCallOutputMessage(type={self.type}, call_id={self.call_id}, output={self.output})"
+
+class ChatMessageList:
+    def __init__(
+        self,
+        messages: List[BaseMessage | UserMessage | AIMessage]
+    ):
+        self.messages = messages
+
+class ToolMessageList:
+    def __init__(
+        self,
+        messages: List[ToolCallMessage | ToolCallOutputMessage]
+    ):
+        self.messages = messages

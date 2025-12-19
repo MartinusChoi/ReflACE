@@ -1,15 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
 
 class BaseAgent(ABC):
     """
     Abstract base class for all agents (ReAct, Reflexion, ACE).
     """
     
-    def __init__(self, llm_client: Any, env: Any):
+    def __init__(self, llm_client: Any):
         self.llm = llm_client
-        self.env = env
-        self.history: List[Dict[str, str]] = []
 
     @abstractmethod
     def run(self, task: str, max_steps: int = 10) -> Dict[str, Any]:
@@ -24,8 +22,3 @@ class BaseAgent(ABC):
             A dictionary containing the results (success, log, etc.)
         """
         pass
-
-    @abstractmethod
-    def reset(self):
-        """Reset the agent state."""
-        self.history = []

@@ -50,4 +50,12 @@ class AppWorldEnv:
             raise ValueError("Environment is not initialized. Call set_env() first.")
         
         return self.env.task.instruction
+    
+    def get_supervisor_info(self):
+        return {
+            'first_name' : self.env.task.supervisor.first_name,
+            'last_name' : self.env.task.supervisor.last_name,
+            'email' : self.env.task.supervisor.email,
+            'phone_number' : self.env.task.supervisor.phone_number
+        }
         

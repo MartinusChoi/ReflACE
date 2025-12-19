@@ -1,5 +1,11 @@
 import os
 from typing import List, Dict, Any, Optional
+from ..core.messages import (
+    ChatMessageList, 
+    ToolMessageList,
+    ToolCallMessage,
+    AIMessage
+)
 
 try:
     from openai import OpenAI
@@ -12,10 +18,14 @@ class OpenAIClient:
     def __init__(
         self, 
         model_name: str = "gpt-4o", 
-        temperature: float = 0.0
+        temperature: float = 0.0,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        system_prompt: Optional[str] = None
     ):
         self.model_name = model_name
         self.temperature = temperature
+        self.tools = tools
+        self.system_prompt = system_prompt
 
         if not OPENAI_AVAILABLE:
             raise ImportError("⛔️ OpenAI module not found.")
@@ -37,76 +47,41 @@ class OpenAIClient:
             messages (List[Dict[str, str]]): List of messages to send to the OpenAI API.
 
         Returns:
-            Response: The Response instance from the OpenAI API.
+            message_list (ChatMessageList | ToolMessageList): The message list from the OpenAI API.
         """
         if not OPENAI_AVAILABLE:
             raise ValueError("⛔️ OpenAI module not found.")
         
-        try:
-            # Attempt to use the Responses API as requested
-            try:
-                response: Response = self.client.responses.create(
-                    model=self.model_name,
-                    temperature=self.temperature,
-                    input=messages
+        response: Response = self.client.responses.create(
+            model=self.model_name,
+            instructions=self.system_prompt,
+            temperature=self.temperature,
+            tools=self.tools,
+            input=messages
+        )
+        
+        tool_calls = [item for item in response.output if item.type == 'function_call']
+
+        if not tool_calls:
+            messages = []
+
+            for output in response.output:
+                if hasattr(output, 'content') and output.type == 'message':
+                    for content in output.content:
+                        if content.type == 'output_text':
+                            messages.append(AIMessage(content=content.text))
+            return ChatMessageList(messages)
+
+        else:
+            messages = []
+
+            for tool_call in tool_calls:
+                messages.append(
+                    ToolCallMessage(
+                        msg_type='function_call',
+                        call_id=tool_call.call_id,
+                        name=tool_call.name,
+                        arguments=tool_call.arguments
+                    )
                 )
-                
-                # Parsing Output
-                if hasattr(response, 'output'):
-                    for output in response.output:
-                        if hasattr(output, 'content'):
-                            for content in output.content:
-                                if hasattr(content, "text"):
-                                    pass
-                        if hasattr(item, 'type') and item.type == "message":
-                             if isinstance(item.content, str):
-                                 return item.content
-                             elif isinstance(item.content, list):
-                                 # Extract text content from blocks
-                                 return "".join([
-                                    c.text for c in item.content if hasattr(c, 'type') and c.type == "text"
-                                    ])
-
-            except AttributeError:
-                # client.responses not found on this version of SDK
-                pass
-            
-            # Fallback to standard chat.completions.create if responses API failed or was missing
-            # or if we couldn't parse the result from it.
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                temperature=self.temperature,
-                stop=stop
-            )
-            return response.choices[0].message.content
-
-        except Exception as e:
-            print(f"Error calling OpenAI API: {e}")
-            return ""
-
-    def get_embedding(
-        self, 
-        text: str
-    ) -> List[float]:
-        """
-        Get embedding for a text string using text-embedding-3-small (default).
-
-        Args:
-            text (str): The text string to get the embedding for.
-
-        Returns:
-            List[float]: The embedding for the text string.
-        """
-        if not OPENAI_AVAILABLE:
-            raise ValueError("⛔️ OpenAI module not found.")
-
-        try:
-            response = self.client.embeddings.create(
-                input=text,
-                model="text-embedding-3-small"
-            )
-            return response.data[0].embedding
-        except Exception as e:
-            print(f"Error getting embedding: {e}")
-            return []
+            return ToolMessageList(messages)
