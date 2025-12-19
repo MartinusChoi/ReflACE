@@ -1,91 +1,81 @@
-from .base import BaseAgent
 from typing import Dict, Any, List
+import json
+
+from .base import BaseAgent
+from ..env.appworld_env import AppWorldEnv
+from ..core.trajectory import Trajectory
+from ..core.messages import (
+    UserMessage,
+    AIMessage,
+    ToolCallOutputMessage,
+    ToolMessageList,
+    ChatMessageList
+)
+from ..llm.openai_client import OpenAIClient
 
 class ReActAgent(BaseAgent):
     """
     Standard ReAct Agent.
     """
-    def __init__(self, llm_client):
+    def __init__(self, llm_client : OpenAIClient):
         super().__init__(llm_client)
         
         # ACE playbook to be injected if needed
         self.playbook = "" 
+    
+    def _build_prompt(
+        self,
+        env: AppWorldEnv,
+    )-> str:
+        instruction = env.get_instruction()
+        supervisor_info = env.get_supervisor_info()
 
-    def _build_prompt(self, obs: str, task: str) -> List[Dict[str, str]]:
-        messages = [
-            {
-                "role": "system", 
-                "content":
-                """
-                You are a helpful agent. 
-                Solve the task using ReAct format: Thought, Action. 
-                Available actions: eat, look.
-                """
-            }
-        ]
-        
-        # Inject Playbook if available (ACE Setting)
-        if self.playbook:
-            messages.append(
-                {
-                    "role": "system", 
-                    "content": f"Here is a Playbook of strategies to help you:\n{self.playbook}"
-                }
-            )
+        return f"""Using these APIs, now generate code to solve the actual task:
 
-        # trajectory
-        history_text = f"Task: {task}\n"
-        for item in self.history:
-            history_text += f"\nObs: {item['obs']}\n"
-            history_text += f"Thought: {item['thought']}\n"
-            history_text += f"Action: {item['action']}\n"
-        
-        history_text += f"\nObs: {obs}\n"
-        
-        messages.append({"role": "user", "content": history_text})
-        return messages
+My name is: {supervisor_info['first_name']} {supervisor_info['last_name']}. My personal email is { supervisor_info['email'] } and phone number is { supervisor_info['phone_number'] }.
+Task: { instruction }
+"""
 
-    def _parse_response(self, response: str) -> Dict[str, str]:
-        # Simple parsing logic (robustness needs improvement for real LLM)
-        thought = ""
-        action = ""
-        lines = response.strip().split('\n')
-        for line in lines:
-            if line.startswith("Thought:"):
-                thought = line.replace("Thought:", "").strip()
-            elif line.startswith("Action:"):
-                action = line.replace("Action:", "").strip()
+    def run(
+        self, 
+        env: AppWorldEnv,
+        max_steps: int = 30
+    ) -> Dict[str, Any]:
         
-        return {"thought": thought, "action": action}
+        trajectory = Trajectory([UserMessage(content=self._build_prompt(env))])
 
-    def run(self, task: str, max_steps: int = 10) -> Dict[str, Any]:
-        obs, info = self.env.reset()
-        success = False
-        
-        for step in range(max_steps):
-            messages = self._build_prompt(obs, task)
-            response = self.llm.chat_completion(messages, stop=["Obs:"])
-            parsed = self._parse_response(response)
-            
-            action = parsed['action']
-            if not action:
-                # Fallback if parsing fails or LLM outputs nothing
-                action = "look" 
+        for _ in range(max_steps):
+            response = self.llm.get_response(trajectory.to_context())
 
-            new_obs, reward, done, truncated, info = self.env.step(action)
-            
-            self.history.append({
-                "obs": obs,
-                "thought": parsed['thought'],
-                "action": action
-            })
-            
-            obs = new_obs
-            if done:
-                success = True
+            if isinstance(response, ChatMessageList):
+                for message in response.messages:
+                    trajectory.append(message)
                 break
-                
-        return {"success": success, "history": self.history, "steps": step + 1}
+            elif isinstance(response, ToolMessageList):
+                for message in response.messages:
+                    trajectory.append(message)
 
-    def reset(self):
-        super().reset()
+                    code = json.loads(message.arguments)['code']
+
+                    obs = env.action(code)
+
+                    trajectory.append(
+                        ToolCallOutputMessage(
+                            msg_type='function_call_output',
+                            call_id=message.call_id,
+                            output=obs
+                        )
+                    )
+            else:
+                raise ValueError(f"Unknown response type: {type(response)}")
+        
+        if isinstance(trajectory.messages[-1], AIMessage):
+            return {
+                'success': True,
+                'trajectory': trajectory
+            }
+        else:
+            return {
+                'success' : False,
+                'trajectory': trajectory
+            }

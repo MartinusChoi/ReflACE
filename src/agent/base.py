@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
+from ..env.appworld_env import AppWorldEnv
 
 class BaseAgent(ABC):
     """
@@ -10,15 +11,19 @@ class BaseAgent(ABC):
         self.llm = llm_client
 
     @abstractmethod
-    def run(self, task: str, max_steps: int = 10) -> Dict[str, Any]:
+    def run(
+        self, 
+        env: AppWorldEnv,
+        max_steps: int = 30
+    ) -> Dict[str, Any]:
         """
-        Run the agent on a given task.
+        Run the agent on a given environment.
         
         Args:
-            task: The task description string.
+            env: The environment to run the agent on.
             max_steps: Maximum number of steps to take.
             
         Returns:
-            A dictionary containing the results (success, log, etc.)
+            A dictionary containing the results (success, trajectory)
         """
         pass
