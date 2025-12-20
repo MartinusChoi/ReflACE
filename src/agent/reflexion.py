@@ -1,59 +1,112 @@
+from typing import Dict, Any, List, Literal
+import operator
+
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langgraph.graph import StateGraph, START, END
+
 from .base import BaseAgent
 from .react import ReActAgent
-from typing import Dict, Any, List
+from ..llm.openai_client import OpenAIClient
+from ..env.appworld_env import AppWorldEnv
 
+
+class ReflectorAgent(BaseAgent):
+    def __init__(self, llm_client: OpenAIClient):
+        super().__init__(llm_client)
+        self.llm = llm_client
+    
+    def _build_prompt(
+        self,
+        task:str,
+        action:str,
+        observation:str,
+        reflection_history,
+    )-> str:
+
+        return f"""주어진 정보에 따라, Actor Agent가 작성한 Python Code에 대해 Reflection을 수행하시오:
+
+Task: {task}
+Actoin(Python Code): {action}
+Observation: {observation}
+Reflection History: {reflection_history}
+"""
+
+    
+    def run(
+        self,
+        task:str,
+        action:str,
+        observation:str,
+        reflection_history,
+        max_steps: int =20
+    ):
+        prompt = self._build_prompt(task, action, observation, reflection_history)
+        trajectory = Trajectory([UserMessage(content=prompt)])
+
+        for _ in range(max_steps):
+            response = self.llm.get_response(trajectory.to_context())
+
+            if isinstance(response, ChatMessageList):
+                for message in response.messages:
+                    trajectory.append(message)
+                break
+            elif isinstance(response, ToolMessageList):
+                for message in response.messages:
+                    trajectory.append(message)
+
+                    code = json.loads(message.arguments)['code']
+
+                    obs = env.action(code)
+
+                    trajectory.append(
+                        ToolCallOutputMessage(
+                            msg_type='function_call_output',
+                            call_id=message.call_id,
+                            output=obs
+                        )
+                    )
+            else:
+                raise ValueError(f"Unknown response type: {type(response)}")
+        
+        if isinstance(trajectory.messages[-1], AIMessage):
+            return {
+                'success': True,
+                'reflection' : trajectory.messages[-1].content
+            }
+        else:
+            return {
+                'success' : False,
+                'reflection': "reflection failed. you should analyze the reason of failure and try again."
+            }
+        
+        
+
+# -------------------------------------------------------------------------------------
+# Main Reflexion Agent Class
+# -------------------------------------------------------------------------------------
 class ReflexionAgent(BaseAgent):
     """
-    Reflexion Agent wrapper.
-    It runs the inner ReAct agent. If it fails, it reflects and retries.
+    Reflexion Agent that orchestrates a ReActAgent with a Reflection loop using LangGraph.
     """
-    def __init__(self, llm_client, env, max_retries: int = 2):
-        super().__init__(llm_client, env)
-        self.react_agent = ReActAgent(llm_client, env)
-        self.max_retries = max_retries
-        self.long_term_memory: List[str] = [] # List of reflections
 
-    def _reflect(self, history: List[Dict[str, str]], task: str) -> str:
-        """
-        Generate reflection based on failure history.
-        """
-        # Simple reflection prompt
-        messages = [
-            {"role": "system", "content": "You are a helpful assistant. Analyze the following trace and explain why it failed. Then provide a plan to avoid this mistake."},
-            {"role": "user", "content": f"Task: {task}\nTrace:\n{str(history)}"}
-        ]
-        response = self.llm.chat_completion(messages)
-        return response
-
-    def run(self, task: str, max_steps: int = 10) -> Dict[str, Any]:
-        final_success = False
+    def __init__(self, llm_client: OpenAIClient):
+        super().__init__(llm_client)
+        # We instantiate ReActAgent on demand or keep a reference if lightweight.
+        # Since ReActAgent holds no persistent state between runs (it initializes fresh trajectory),
+        # we can instantiate it once.
+        self.actor_agent = ReActAgent(llm_client)
+        self.reflector_agent = ReflectorAgent(llm_client)
+    
+    def reset_agent(self):
+        self.trajectory = [] # Short memory list of 'Action' and 'Observation'
+        self.reflection_history = [] # Long memory list of 'Reflection'
+        self.trial_num = 0
+    
+    def run(
+        self,
+        env: AppWorldEnv,
+        max_retries: int = 3
+    ) -> Dict[str, Any]:
         
-        for trial in range(self.max_retries + 1):
-            # Inject memory into ReAct agent prompt
-            # For simplicity, we append memory to the task description or system prompt of the sub-agent
-            # But the ReActAgent needs to handle this.
-            # Let's modify ReAct logic slightly to accept 'memory' or we prepend it to task.
-            
-            task_with_memory = task
-            if self.long_term_memory:
-                 task_with_memory += "\n\nTips from previous attempts:\n" + "\n".join(self.long_term_memory)
-            
-            print(f"Trial {trial} START")
-            result = self.react_agent.run(task_with_memory, max_steps)
-            
-            if result['success']:
-                final_success = True
-                break
-            else:
-                # Failed, create reflection
-                print(f"Trial {trial} FAILED. Reflecting...")
-                reflection = self._reflect(result['history'], task)
-                self.long_term_memory.append(reflection)
-                self.react_agent.reset() # Important: reset state for next trial
-                
-        return {"success": final_success, "trials": trial + 1}
-        
-    def reset(self):
-        super().reset()
-        self.long_term_memory = []
-        self.react_agent.reset()
+        pass
