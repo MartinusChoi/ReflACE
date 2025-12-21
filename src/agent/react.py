@@ -17,7 +17,10 @@ class ReActAgent(BaseAgent):
     """
     Standard ReAct Agent.
     """
-    def __init__(self, llm_client : OpenAIClient):
+    def __init__(
+        self, 
+        llm_client : OpenAIClient
+    ):
         super().__init__(llm_client)
         
         # ACE playbook to be injected if needed
@@ -37,45 +40,33 @@ Task: { instruction }
 """
 
     def run(
-        self, 
+        self,
+        trajectory: Trajectory,
         env: AppWorldEnv,
         max_steps: int = 30
     ) -> Dict[str, Any]:
-        
-        trajectory = Trajectory([UserMessage(content=self._build_prompt(env))])
 
-        for _ in range(max_steps):
-            response = self.llm.get_response(trajectory.to_context())
+        response = self.llm.get_response(trajectory.to_context())
 
-            if isinstance(response, ChatMessageList):
-                for message in response.messages:
-                    trajectory.append(message)
-                break
-            elif isinstance(response, ToolMessageList):
-                for message in response.messages:
-                    trajectory.append(message)
+        if isinstance(response, ChatMessageList):
+            for message in response.messages:
+                trajectory.append(message)
+        elif isinstance(response, ToolMessageList):
+            for message in response.messages:
+                trajectory.append(message)
 
-                    code = json.loads(message.arguments)['code']
+                code = json.loads(message.arguments)['code']
 
-                    obs = env.action(code)
+                obs = env.action(code)
 
-                    trajectory.append(
-                        ToolCallOutputMessage(
-                            msg_type='function_call_output',
-                            call_id=message.call_id,
-                            output=obs
-                        )
+                trajectory.append(
+                    ToolCallOutputMessage(
+                        msg_type='function_call_output',
+                        call_id=message.call_id,
+                        output=obs
                     )
-            else:
-                raise ValueError(f"Unknown response type: {type(response)}")
-        
-        if isinstance(trajectory.messages[-1], AIMessage):
-            return {
-                'success': True,
-                'trajectory': trajectory
-            }
+                )
         else:
-            return {
-                'success' : False,
-                'trajectory': trajectory
-            }
+            raise ValueError(f"Unknown response type: {type(response)}")
+
+        return trajectory
