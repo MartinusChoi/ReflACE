@@ -1,5 +1,5 @@
 from appworld import AppWorld, load_task_ids
-from typing import Literal
+from typing import Literal, Union
 
 class AppWorldEnv:
     def __init__(
@@ -58,4 +58,32 @@ class AppWorldEnv:
             'email' : self.env.task.supervisor.email,
             'phone_number' : self.env.task.supervisor.phone_number
         }
+
+
+def evaluate_agent(
+    agent,
+    env:AppWorldEnv,
+    max_task:Union[int, None] = None
+):
+    success_cnt = 0
+    failed_cnt = 0
+
+    max_task = max_task or len(env.task_ids)
+
+    for i in range(max_task):
+
+        result = agent.run(env=env)
+
+        evaluation = env.env.evaluate()
+
+        success_cnt += evaluation.pass_count
+        failed_cnt += evaluation.fail_count
         
+        env.step()
+    
+    return {
+        'success_cnt' : success_cnt,
+        'failed_cnt' : failed_cnt,
+        'total_cnt' : len(success_cnt + failed_cnt),
+        'success_rate' : success_cnt / (success_cnt + failed_cnt)
+    }
