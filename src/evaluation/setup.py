@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from ..env.appworld_env import AppWorldEnv
 from ..agent.react import ReActAgent
+from ..agent.reflexion import ReflexionAgent
 from ..llm.openai_client import OpenAIClient
 from ..llm.tools import TOOLS
 

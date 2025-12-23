@@ -65,7 +65,8 @@ def run_evaluation(
             else:
                 trajectory[current_task_id] = {
                     'trajectory': run_output['trajectory'].to_chat_prompt(),
-                    'reflection_history' : run_output['reflection_history']
+                    'reflection_history' : run_output['reflection_history'],
+                    'action_history' : run_output['action_history']
                 }
             
             # Evaluate

@@ -18,27 +18,39 @@ from ..utils.conditions import is_agent_finished
 # ReAct Agent Input Prompt Templates
 # -------------------------------------------------------------------------------------
 PROMPT = {
+# prompt for react agent
     'react_only' : """
 Using these APIs, now generate code to solve the actual task:
 
 My name is {first_name} {last_name}. 
 My personal email is {email} and phone number is {phone_number}.
 
-Task: {instruction}
+**Task**: 
+{instruction}
 """,
+
+# prompt for react agent in Reflexion Agent Actor Module Core
     'with_reflection' : """
-Using these 'APIs' and 'reflection history' of your previous actions, now generate code to solve the actual task:
+Using these 'APIs', 'action history' and 'reflection history' of your previous actions, now generate code to solve the actual task:
 
 My name is {first_name} {last_name}. 
 My personal email is {email} and phone number is {phone_number}.
 
-Task: {instruction}
+**Task**: 
+{instruction}
 
-Reflection History:
+**Action History**:
+{action_history}
+
+**Reflection History**:
 {reflection_history}
 """,
+
+# prompt for react agent in ACE Agent Generator Module Core
     'with_playbook' : """
 """,
+
+# prompt for react agent in ReflACE Agent Actor Module Core
     'with_reflection_and_playbook' : """
 """
 }
@@ -62,7 +74,8 @@ class ReActAgent(BaseAgent):
     def _build_prompt(
         self,
         env: AppWorldEnv,
-        reflection_history: str = None
+        reflection_history: str = None,
+        action_history: str = None
     )-> str:
         """
         build input prompt for ReAct Agent.
@@ -83,32 +96,34 @@ class ReActAgent(BaseAgent):
         instruction = env.get_instruction()           # instruction
         supervisor_info = env.get_supervisor_info()   # supervisor information
 
-        if reflection_history is None:
+        if reflection_history is None and action_history is None:
             # build prompt for ReAct Agent without reflection history
-            return PROMPT['react_only'].format(**{
-                'first_name' : supervisor_info['first_name'],
-                'last_name' : supervisor_info['last_name'],
-                'email' : supervisor_info['email'],
-                'phone_number' : supervisor_info['phone_number'],
-                'instruction' : instruction
-            })
+            return PROMPT['react_only'].format(
+                first_name = supervisor_info['first_name'],
+                last_name = supervisor_info['last_name'],
+                email = supervisor_info['email'],
+                phone_number = supervisor_info['phone_number'],
+                instruction = instruction
+            )
         
         else:
             # build prompt for ReAct Agent with reflection history : In Reflexion Agent setting
-            return PROMPT['with_reflection'].format(**{
-                'first_name' : supervisor_info['first_name'],
-                'last_name' : supervisor_info['last_name'],
-                'email' : supervisor_info['email'],
-                'phone_number' : supervisor_info['phone_number'],
-                'instruction' : instruction,
-                'reflection_history' : reflection_history
-            })
+            return PROMPT['with_reflection'].format(
+                first_name = supervisor_info['first_name'],
+                last_name = supervisor_info['last_name'],
+                email = supervisor_info['email'],
+                phone_number = supervisor_info['phone_number'],
+                instruction = instruction,
+                reflection_history = reflection_history,
+                action_history = action_history
+            )
 
     def run(
         self,
         env: AppWorldEnv,
         max_steps: int = 30,
         reflection_history: str = None,
+        action_history: str = None
     ) -> Dict[str, Any]:
         """
         Run ReAct Agent for max_steps.
@@ -129,7 +144,7 @@ class ReActAgent(BaseAgent):
                 - 'trajectory': Trajectory
         """
 
-        if reflection_history is None:
+        if reflection_history is None and action_history is None:
             trajectory = Trajectory([
                 UserMessage(content=self._build_prompt(env=env))
             ])
@@ -137,7 +152,8 @@ class ReActAgent(BaseAgent):
             trajectory = Trajectory([
                 UserMessage(content=self._build_prompt(
                     env=env,
-                    reflection_history=reflection_history
+                    reflection_history=reflection_history,
+                    action_history=action_history
                 ))
             ])
 

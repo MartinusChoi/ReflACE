@@ -1,27 +1,78 @@
 from .base import BaseAgent
 from .react import ReActAgent
-from .reflexion import ReflexionAgent
+from ..env.appworld_env import AppWorldEnv
+from ..llm.openai_client import OpenAIClient
 from ..core.playbook import Playbook
-from ..core.curator import Curator
-from ..core.reflector import Reflector
+from ..core.trajectory import Trajectory
 from typing import Dict, Any
+
+PROMPT = {
+    'only_ace' : """
+**Task:**
+{instruction}
+
+**Model Action Trajectory:**
+{trajectory}
+
+**Part of Playbook that's used by the generator to answer the question:**
+{playbook}
+
+**Answer in this exact JSON format:**
+{{
+  "reasoning": "[Your chain of thought / reasoning / thinking process, detailed analysis and calculations]",
+  "error_identification": "[What specifically went wrong in the reasoning?]",
+  "root_cause_analysis": "[Why did this error occur? What concept was misunderstood?]",
+  "correct_approach": "[What should the model have done instead?]",
+  "key_insight": "[What strategy, formula, or principle should be remembered to avoid this error?]",
+  "bullet_tags": [
+    {{"id": "calc-00001", "tag": "helpful"}},
+    {{"id": "fin-00002", "tag": "harmful"}}
+  ]
+}}
+""",
+    'with_reflexion' : """
+"""
+}
 
 class ACEAgent(BaseAgent):
     """
     ACE Agent wrapper.
-    It manages the 'Slow Loop': Updating the Playbook after episodes.
+    Updating the Playbook after episodes.
     """
-    def __init__(self, llm_client, env, use_reflexion: bool = False):
-        super().__init__(llm_client, env)
+    def __init__(
+        self,
+        actor_client:OpenAIClient,
+        reflector_client:OpenAIClient,
+        env:AppWorldEnv,
+    ):
+        super().__init__(
+            actor_client=actor_client    
+        )
         self.playbook = Playbook()
-        self.reflector = Reflector(llm_client)
-        self.curator = Curator(llm_client, self.playbook)
-        
-        self.use_reflexion = use_reflexion
-        if use_reflexion:
-            self.inner_agent = ReflexionAgent(llm_client, env)
-        else:
-            self.inner_agent = ReActAgent(llm_client, env)
+        self.reflector_client = reflector_client
+        self.actor = ReActAgent(actor_client=self.actor_client)
+    
+    def _build_reflect_prompt(
+        self,
+        instruction:str,
+        trajectory:Trajectory,
+        playbook:Playbook
+    ) -> str:
+        return PROMPT['only_ace'].format(
+            instruction=instruction,
+            trajectory=trajectory.get_content(),
+            playbook=playbook.get_content()
+        )
+
+
+    def _reflector(
+        self,
+        env:AppWorldEnv,
+        trajectory:Trajectory
+    ) -> str:
+
+        pass
+
 
     def run(self, task: str, max_steps: int = 10) -> Dict[str, Any]:
         # 1. Inject Playbook

@@ -22,7 +22,7 @@ def main():
     print(f"    📍 Max Steps: {args.max_steps}")
     print(f"📌 Running Environment: AppWorld")
     print(f"    📍 Task Type: {args.task_type}")
-    print(f"    📍 Experiment Name: {args.experiment_name}\n\n")
+    print(f"    📍 Experiment Name: {args.experiment_name}")
     print(f"    📍 Task Limit: {args.task_limit}")
     print(f"📌 Save Directory: {args.save_dir}\n\n")
     
