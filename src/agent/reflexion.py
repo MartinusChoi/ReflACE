@@ -9,34 +9,14 @@ from ..utils.conditions import is_agent_finished
 from ..core.trajectory import Trajectory
 from ..core.messages import UserMessage, ChatMessageList
 
-# -------------------------------------------------------------------------------------
-# Main Reflexion Agent Class
-# -------------------------------------------------------------------------------------
-class ReflexionAgent(BaseAgent):
-    """
-    Reflexion Agent that orchestrates a ReActAgent with a Reflection loop
-    """
 
-    def __init__(
-        self, 
-        action_module_client: OpenAIClient,
-        reflection_module_client: OpenAIClient
-    ):
-        self.action_module = ReActAgent(action_module_client)
-        self.reflection_module_client = reflection_module_client
-    
-    def _build_reflection_prompt(
-        self, 
-        env:AppWorldEnv,
-        trajectory:Trajectory,
-        reflection_history:List[str]
-    ) -> str:
-        # make reflection history into a string(book)
-        reflection_book = "\n\n".join(reflection_history)
 
-        return f"""
+# -------------------------------------------------------------------------------------
+# Reflector Prompt
+# -------------------------------------------------------------------------------------
+PROMPT = """
 Task Status: Task Failed. 
-Objective: Generate a reflection on the Actor Agent's Action History by analyzing the Python code and execution logs.
+Objective: Generate a reflection on the Actor Agent's Action and Reflector's Reflection History by analyzing the Python code, execution logs, and reflection of those actions.
 
 Requirements:
 1. Pinpoint the exact failure points and logic errors in the code history.
@@ -44,38 +24,92 @@ Requirements:
 3. Constraint: Do not use pronouns (e.g., 'it', 'this', 'that'). Refer to variables, functions, and logic by their specific names.
 4. Constraint: Use brief, direct, and non-abstract sentences.
 
-Task: {env.get_instruction()}
-Action History: {trajectory.to_context()}
-Reflection History: {reflection_book}
+Task: {instruction}
+Action/Reflection History: {reflection_history}
 """
 
-    def _reflection_module(
+
+
+
+# -------------------------------------------------------------------------------------
+# Reflexion Agent Class
+# -------------------------------------------------------------------------------------
+class ReflexionAgent(BaseAgent):
+    """
+    Reflexion Agent that use ReActAgent for Actor Module with a Reflection loop
+    """
+
+    def __init__(
+        self, 
+        actor_client: OpenAIClient,
+        reflector_client: OpenAIClient
+    ):
+        super().__init__(
+            actor_client=actor_client
+        )
+        self.actor = ReActAgent(self.actor_client)
+        self.reflector_client = reflector_client
+        self.reflection_history = "\n"
+        self.reflection_cnt = 1
+        self.action_cnt = 1
+    
+    def reset(self):
+        self.reflection_history = "\n"
+        self.reflection_cnt = 1
+        self.action_cnt = 1
+    
+    def _build_reflect_prompt(
+        self, 
+        env:AppWorldEnv,
+        trajectory:Trajectory,
+    ) -> str:
+
+        return PROMPT.format({
+            'instruction' : env.get_instruction(),
+            'trajectory' : trajectory.to_chat_prompt(),
+            'reflection_history' : self.reflection_history
+        })
+
+    def _reflector(
         self,
         env:AppWorldEnv,
         trajectory:Trajectory,
-        reflection_history:List[str] = [],
     ) -> List[str]:
 
         # create initial reflection module input
         reflection_request = Trajectory([
-            UserMessage(content=self._build_reflection_prompt(env, trajectory, reflection_history))
+            UserMessage(content=self._build_reflect_prompt(env, trajectory))
         ])
 
         # get response from reflection module llm core with current trajectory
-        response = self.reflection_module_client.get_response(reflection_request.to_context())
+        response = self.reflector_client.get_response(reflection_request.to_chat_prompt())
 
         if isinstance(response, ChatMessageList):
+
+            # concatenate all action history to reflection history
+            self.reflection_history += f"<action history {self.action_cnt}>\n"
+            for chat_prompt in trajectory.to_chat_prompt():
+                self.reflection_history += f"{str(chat_prompt)}\n"
+            self.reflection_history += f"</action history {self.action_cnt}>\n\n"
+            self.action_cnt += 1
+
             # concatenate all current reflection contents
-            reflection = "\n\n".join([msg.content for msg in response.messages])
-            reflection_history.append(reflection)
-            return reflection_history
+            self.reflection_history += f"<reflection history {self.reflection_cnt}>\n"
+            for msg in response.messages:
+                self.reflection_history += f"{msg.content}\n"
+            self.reflection_history += f"</reflection history {self.reflection_cnt}>\n\n"
+            self.reflection_cnt += 1
+
         else:
             # raise error if response is not list of AIMessages
             # in Reflection Module, we expect only AIMessage not ToolCallMessage
             raise ValueError(f"Unknown response type: {type(response)}")
         
     
-    def _evaluation_module(self, env: AppWorldEnv) -> bool:
+    def _evaluator(
+        self,
+        env: AppWorldEnv
+    ) -> bool:
         # evaluate agent task results
         evaluation = env.env.evaluate()
         # return True if task is success, False otherwise
@@ -84,37 +118,30 @@ Reflection History: {reflection_book}
     def run(
         self,
         env: AppWorldEnv,
-        max_retries: int = 3
+        max_steps: int = 3
     ) -> Dict[str, Any]:
 
-        reflection_history = []
-
-        for _ in range(max_retries):
+        for _ in range(max_steps):
             # actor action, get trajectory of actor action
-            action_result = self.action_module.run(
+            action = self.actor.run(
                 env=env,
                 max_steps=30,
-                reflection_history=reflection_history
+                reflection_history=self.reflection_history
             )
 
-            action_trajectory = "\n".join([str(ctx) for ctx in action_result['trajectory'].to_context()])
-            reflection_history.append(action_trajectory)
-
             # evaluate action of actor module
-            evaluation = self._evaluation_module(env)
-
-            # if task success, done reflexion loop
-            if evaluation: break
+            is_success = self._evaluator(env)
+            
+            if is_success: break # if task success, done reflexion loop
 
             # reflect on actor action
-            reflection_history = self._reflection_module(
+            self._reflector(
                 env=env,
-                trajectory=action_result['trajectory'],
-                reflection_history=reflection_history
+                trajectory=action['trajectory']
             )
         
         return {
-            'finished' : is_agent_finished(action_result['trajectory']),
-            'trajectory' : action_result['trajectory'],
-            'reflection_history' : reflection_history
+            'finished' : is_agent_finished(action['trajectory']),
+            'trajectory' : action['trajectory'],
+            'reflection_history' : self.reflection_history
         }

@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
 import json
 
 from .base import BaseAgent
@@ -14,58 +14,120 @@ from ..core.messages import (
 from ..llm.openai_client import OpenAIClient
 from ..utils.conditions import is_agent_finished
 
-class ReActAgent(BaseAgent):
-    """
-    Standard ReAct Agent.
-    """
-    def __init__(
-        self, 
-        llm_client : OpenAIClient
-    ):
-        super().__init__(llm_client)
-        
-        # ACE playbook to be injected if needed
-        self.playbook = "" 
-    
-    def _build_prompt(
-        self,
-        env: AppWorldEnv,
-        reflection_history: List[str] = None
-    )-> str:
-        instruction = env.get_instruction()
-        supervisor_info = env.get_supervisor_info()
-
-        if reflection_history is None:
-
-            return f"""
+# -------------------------------------------------------------------------------------
+# ReAct Agent Input Prompt Templates
+# -------------------------------------------------------------------------------------
+PROMPT = {
+    'react_only' : """
 Using these APIs, now generate code to solve the actual task:
 
-My name is {supervisor_info['first_name']} {supervisor_info['last_name']}. 
-My personal email is { supervisor_info['email'] } and phone number is { supervisor_info['phone_number'] }.
+My name is {first_name} {last_name}. 
+My personal email is {email} and phone number is {phone_number}.
 
 Task: {instruction}
-"""
-        
-        else:
-            reflection_book = "\n".join(reflection_history)
-            return f"""
+""",
+    'with_reflection' : """
 Using these 'APIs' and 'reflection history' of your previous actions, now generate code to solve the actual task:
 
-My name is {supervisor_info['first_name']} {supervisor_info['last_name']}. 
-My personal email is { supervisor_info['email'] } and phone number is { supervisor_info['phone_number'] }.
+My name is {first_name} {last_name}. 
+My personal email is {email} and phone number is {phone_number}.
 
 Task: {instruction}
 
 Reflection History:
-{reflection_book}
+{reflection_history}
+""",
+    'with_playbook' : """
+""",
+    'with_reflection_and_playbook' : """
 """
+}
+
+
+# -------------------------------------------------------------------------------------
+# ReAct Agent Class
+# -------------------------------------------------------------------------------------
+class ReActAgent(BaseAgent):
+    """
+    ReAct Agent Class
+    """
+    def __init__(
+        self, 
+        actor_client : Union[OpenAIClient, Any]
+    ):
+        super().__init__(
+            actor_client=actor_client
+        )
+    
+    def _build_prompt(
+        self,
+        env: AppWorldEnv,
+        reflection_history: str = None
+    )-> str:
+        """
+        build input prompt for ReAct Agent.
+
+        Args:
+            env (AppWorldEnv): 
+                Appworld environment object.
+            reflection_history (str, optional): 
+                Reflection history of previous actions. Defaults to None.
+                Use this when you use ReAct Agent for Actor Module in Reflexion Agent.
+
+        Returns:
+            str: 
+                Input prompt for ReAct Agent. 
+                If reflection_history is not None, the prompt will include the reflection history.
+        """
+        # get task instruction and supervisor information
+        instruction = env.get_instruction()           # instruction
+        supervisor_info = env.get_supervisor_info()   # supervisor information
+
+        if reflection_history is None:
+            # build prompt for ReAct Agent without reflection history
+            return PROMPT['react_only'].format({
+                'first_name' : supervisor_info['first_name'],
+                'last_name' : supervisor_info['last_name'],
+                'email' : supervisor_info['email'],
+                'phone_number' : supervisor_info['phone_number'],
+                'instruction' : instruction
+            })
+        
+        else:
+            # build prompt for ReAct Agent with reflection history : In Reflexion Agent setting
+            return PROMPT['with_reflection'].format({
+                'first_name' : supervisor_info['first_name'],
+                'last_name' : supervisor_info['last_name'],
+                'email' : supervisor_info['email'],
+                'phone_number' : supervisor_info['phone_number'],
+                'instruction' : instruction,
+                'reflection_history' : reflection_history
+            })
 
     def run(
         self,
         env: AppWorldEnv,
         max_steps: int = 30,
-        reflection_history: List[str] = None,
+        reflection_history: str = None,
     ) -> Dict[str, Any]:
+        """
+        Run ReAct Agent for max_steps.
+
+        Args:
+            env (AppWorldEnv): 
+                Appworld environment object.
+            max_steps (int, optional): 
+                Maximum number of steps to run ReAct Agent. Defaults to 30.
+            reflection_history (str, optional): 
+                Reflection history of previous actions. Defaults to None.
+                Use this when you use ReAct Agent for Actor Module in Reflexion Agent.
+
+        Returns:
+            Dict[str, Any]: 
+                Dictionary containing the following keys:
+                - 'finished': bool
+                - 'trajectory': Trajectory
+        """
 
         if reflection_history is None:
             trajectory = Trajectory([
@@ -79,24 +141,19 @@ Reflection History:
                 ))
             ])
 
-        # Run for max_steps
+        # Run ReAct Agent for max_steps
         for step in range(max_steps):
 
             # get response from llm core with current trajectory
             # trajectory : List[UserMessage, AIMessage, ToolCallMessage,ToolCallOutputMessage]
-            response = self.llm.get_response(trajectory.to_context())
+            response = self.actor_client.get_response(trajectory.to_chat_prompt())
 
             # if response is list of AIMessages, stop agent workloop
             if isinstance(response, ChatMessageList):
                 for message in response.messages:
                     # add each message to trajectory
                     trajectory.append(message)
-                
-                return {
-                    'finished' : is_agent_finished(trajectory),
-                    'trajectory' : trajectory,
-                    'step' : step+1
-                }
+                break
             
             # if response is list of ToolCallMessage, act on environment and add Observation in trajectory
             elif isinstance(response, ToolMessageList):
@@ -126,5 +183,4 @@ Reflection History:
         return {
             'finished' : is_agent_finished(trajectory),
             'trajectory' : trajectory,
-            'step' : max_steps
         }

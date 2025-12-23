@@ -1,5 +1,8 @@
 from typing import List
 
+# ------------------------------------------------------------------
+# Base message class for all messages.
+# ------------------------------------------------------------------
 class BaseMessage:
     def __init__(
         self, 
@@ -16,8 +19,15 @@ class BaseMessage:
         }
     
     def __repr__(self):
-        return f"BaseMessage(role={self.role}, content={self.content})"
+        return f"""
+==========[{self.__class__.__name__}]=========
+content : {self.content}
+===============================
+"""
 
+# ------------------------------------------------------------------
+# User message class.
+# ------------------------------------------------------------------
 class UserMessage(BaseMessage):
     def __init__(
         self, 
@@ -25,20 +35,26 @@ class UserMessage(BaseMessage):
     ):
         super().__init__(
             role="user", content=content)
-    
-    def __repr__(self):
-        return f"UserMessage(content={self.content})"
 
+# ------------------------------------------------------------------
+# Assistant message class.
+# ------------------------------------------------------------------
 class AIMessage(BaseMessage):
     def __init__(
         self, 
         content: str
     ):
         super().__init__(role="assistant", content=content)
-    
-    def __repr__(self):
-        return f"AIMessage(content={self.content})"
 
+
+
+
+
+
+
+# ------------------------------------------------------------------
+# Tool call message class.
+# ------------------------------------------------------------------
 class ToolCallMessage:
     def __init__(
         self, 
@@ -61,8 +77,18 @@ class ToolCallMessage:
         }
     
     def __repr__(self):
-        return f"ToolCallMessage(type={self.type}, call_id={self.call_id}, name={self.name}, arguments={self.arguments})"
+        return f"""
+==========[ToolCallMessage]=========
+type : {self.type}
+call_id : {self.call_id}
+name : {self.name}
+arguments : {self.arguments}
+====================================
+"""
 
+# ------------------------------------------------------------------
+# Tool call output message class.
+# ------------------------------------------------------------------
 class ToolCallOutputMessage:
     def __init__(
         self, 
@@ -82,8 +108,22 @@ class ToolCallOutputMessage:
         }
     
     def __repr__(self):
-        return f"ToolCallOutputMessage(type={self.type}, call_id={self.call_id}, output={self.output})"
+        return f"""
+==========[ToolCallOutputMessage]=========
+type : {self.type}
+call_id : {self.call_id}
+output : {self.output}
+==========================================
+"""
 
+
+
+
+
+
+# ------------------------------------------------------------------
+# Message List Class for Base, User, Assistant Message Classes
+# ------------------------------------------------------------------
 class ChatMessageList:
     def __init__(
         self,
@@ -91,6 +131,9 @@ class ChatMessageList:
     ):
         self.messages = messages
 
+# ------------------------------------------------------------------
+# Message List Class for Tool Call and Tool Call Output Message Classes
+# ------------------------------------------------------------------
 class ToolMessageList:
     def __init__(
         self,
