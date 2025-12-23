@@ -85,7 +85,7 @@ class ReActAgent(BaseAgent):
 
         if reflection_history is None:
             # build prompt for ReAct Agent without reflection history
-            return PROMPT['react_only'].format({
+            return PROMPT['react_only'].format(**{
                 'first_name' : supervisor_info['first_name'],
                 'last_name' : supervisor_info['last_name'],
                 'email' : supervisor_info['email'],
@@ -95,7 +95,7 @@ class ReActAgent(BaseAgent):
         
         else:
             # build prompt for ReAct Agent with reflection history : In Reflexion Agent setting
-            return PROMPT['with_reflection'].format({
+            return PROMPT['with_reflection'].format(**{
                 'first_name' : supervisor_info['first_name'],
                 'last_name' : supervisor_info['last_name'],
                 'email' : supervisor_info['email'],

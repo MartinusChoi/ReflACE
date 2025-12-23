@@ -1,9 +1,9 @@
 from .base import BaseAgent
 from .react import ReActAgent
 from .reflexion import ReflexionAgent
-from src.core.playbook import Playbook
-from src.core.curator import Curator
-from src.core.reflector import Reflector
+from ..core.playbook import Playbook
+from ..core.curator import Curator
+from ..core.reflector import Reflector
 from typing import Dict, Any
 
 class ACEAgent(BaseAgent):
