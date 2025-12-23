@@ -9,6 +9,29 @@ from ..core.messages import ChatMessageList, AIMessage
 from ..prompt.ace.input_prompt import ace_reflector
 from typing import Dict, Any
 
+class ReflectorAgent(BaseAgent):
+    """
+    Reflector Agent for ACE
+    """
+    def __init__(
+        self, 
+        actor_client: OpenAIClient,
+    ):
+        super().__init__(actor_client=actor_client)
+    
+    def _build_prompt(
+        self, 
+        env_wrapper:AppWorldEnv,
+        trajectory:Trajectory,
+        reflection_history: ReflectionHistory,
+    ) -> str:
+        return ace_reflector.template.format(
+            instruction=env_wrapper.get_instruction(),
+            trajectory=trajectory.to_str(),
+            reflection_history=reflection_history.get_history(),
+            success="Success" if env_wrapper.evaluate_env().success else "Failed",
+        )
+
 class ACEAgent(BaseAgent):
     """
     ACE Agent wrapper.

@@ -8,8 +8,11 @@ from ..core.trajectory import Trajectory
 from ..core.messages import (
     UserMessage,
     AIMessage,
+    ToolCallMessage,
+    ToolCallOutputMessage,
 )
-from ..prompt.reflexion.input_prompt import reflexion_reflector
+from ..prompt.reflexion.input_prompt import reflexion_user_prompt
+from ..prompt.reflexion.system_prompt import reflexion_system_prompt
 from ..core.reflection import ReflectionHistory
 
 
@@ -29,6 +32,7 @@ class ReflectorAgent(BaseAgent):
         actor_client: OpenAIClient,
     ):
         super().__init__(actor_client=actor_client)
+        self.reflector = ReActAgent(actor_client=self.actor_client)
     
     def _build_prompt(
         self, 
@@ -36,7 +40,7 @@ class ReflectorAgent(BaseAgent):
         trajectory:Trajectory,
         reflection_history: ReflectionHistory,
     ) -> str:
-        return reflexion_reflector.template.format(
+        return reflexion_user_prompt.template.format(
             instruction=env_wrapper.get_instruction(),
             trajectory=trajectory.to_str(),
             reflection_history=reflection_history.get_history(),
@@ -50,20 +54,21 @@ class ReflectorAgent(BaseAgent):
         reflection_history: ReflectionHistory,
     ) -> ReflectionHistory:
 
-        # create initial reflection module input
-        reflection_request = Trajectory([
-            UserMessage(content=self._build_prompt(env_wrapper, trajectory, reflection_history))
+        reflection_trajectory = Trajectory(messages=[
+            UserMessage(
+                content=self._build_prompt(env_wrapper, trajectory, reflection_history)
+            )
         ])
 
-        # get response from reflection module llm core with current trajectory
-        response = self.actor_client.get_response(reflection_request.to_chat_prompt())
+        # Run ReAct Agent for max_steps
+        reflection_message = self.reflector.run_with_trajectory(
+            env_wrapper=env_wrapper,
+            max_steps=5,
+            trajectory=reflection_trajectory
+        )
 
-        for message in response:
-            if isinstance(message, AIMessage):
-                reflection_history.add_reflection(messages=[message])
-            else:
-                raise ValueError(f"Unexpected message type: {type(message)}")
-        
+        reflection_history.add_reflection(messages=[reflection_message])
+
         return reflection_history
 
 
@@ -89,9 +94,13 @@ class ReflexionAgent(BaseAgent):
         super().__init__(
             actor_client=actor_client
         )
+        if reflector_client.system_prompt is None:
+            print("⚠️ Warning: Reflector Client system prompt is missing. Using default.")
+            reflector_client.system_prompt = reflexion_system_prompt.template
+
         self._actor = ReActAgent(self.actor_client)
         self._reflector = ReflectorAgent(reflector_client)
-        self.reflection_history = ReflectionHistory(max_size=None)
+        self.reflection_history = ReflectionHistory(max_size=3)
     
     def _build_prompt(self) -> None:
         pass

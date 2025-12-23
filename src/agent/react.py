@@ -178,3 +178,38 @@ class ReActAgent(BaseAgent):
         return {
             'trajectory' : cur_trajectory,
         }
+    
+    def run_with_trajectory(
+        self,
+        env_wrapper: AppWorldEnv,
+        trajectory: Trajectory,
+        max_steps: int = 5,
+    ) -> AIMessage:
+        # Run ReAct Agent for max_steps
+        for step in range(max_steps):
+            # get response from llm core with current trajectory
+            # trajectory : List[UserMessage, AIMessage, ToolCallMessage,ToolCallOutputMessage]
+            response = self.actor_client.get_response(trajectory.to_chat_prompt())
+
+            for message in response:
+                if isinstance(message, ToolCallMessage):
+                    trajectory.append(message)
+
+                    code = json.loads(message.arguments)['code']
+
+                    obs = env_wrapper.action(code)
+
+                    trajectory.append(
+                        ToolCallOutputMessage(
+                            msg_type='function_call_output',
+                            call_id=message.call_id,
+                            output=obs
+                        )
+                    )
+
+                elif isinstance(message, AIMessage):
+                    return message
+                else:
+                    raise ValueError(f"Unknown message type: {type(message)}")
+
+        return AIMessage(content="Reflection Failed.")

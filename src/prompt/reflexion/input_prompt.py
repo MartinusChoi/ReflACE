@@ -1,7 +1,7 @@
 from ..base import PromptTemplate
 
 
-reflexion_reflector = PromptTemplate(
+reflexion_user_prompt = PromptTemplate(
     model='gpt-4o',
     temperature=0.0,
     input_variables=["instruction", "reflection_history", "trajectory", "success"],

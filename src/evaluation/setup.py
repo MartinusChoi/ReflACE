@@ -6,7 +6,7 @@ from ..agent.reflexion import ReflexionAgent
 from ..llm.openai_client import OpenAIClient
 from ..llm.tools import TOOLS
 from ..prompt.react.system_prompt import react_oneshot
-from ..prompt.reflexion.system_prompt import reflexion_reflector
+from ..prompt.reflexion.system_prompt import reflexion_system_prompt
 
 # --------------------------------------------------------------------------------------------------------------
 # Setup Agent
@@ -34,7 +34,7 @@ def setup_agent(
 
     elif agent == 'reflexion':
         actor_system_prompt = react_oneshot.template
-        reflector_system_prompt = reflexion_reflector.template
+        reflector_system_prompt = reflexion_system_prompt.template
         
         actor_client = OpenAIClient(
             model_name=model_name if model_name is not None else react_oneshot.model,
@@ -43,8 +43,9 @@ def setup_agent(
             system_prompt=actor_system_prompt
         )
         reflector_client = OpenAIClient(
-            model_name=model_name if model_name is not None else reflexion_reflector.model,
-            temperature=temperature if temperature is not None else reflexion_reflector.temperature,
+            model_name=model_name if model_name is not None else reflexion_system_prompt.model,
+            temperature=temperature if temperature is not None else reflexion_system_prompt.temperature,
+            tools=TOOLS,
             system_prompt=reflector_system_prompt
         )
 
