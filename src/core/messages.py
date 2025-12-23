@@ -115,28 +115,3 @@ call_id : {self.call_id}
 output : {self.output}
 ==========================================
 """
-
-
-
-
-
-
-# ------------------------------------------------------------------
-# Message List Class for Base, User, Assistant Message Classes
-# ------------------------------------------------------------------
-class ChatMessageList:
-    def __init__(
-        self,
-        messages: List[BaseMessage | UserMessage | AIMessage]
-    ):
-        self.messages = messages
-
-# ------------------------------------------------------------------
-# Message List Class for Tool Call and Tool Call Output Message Classes
-# ------------------------------------------------------------------
-class ToolMessageList:
-    def __init__(
-        self,
-        messages: List[ToolCallMessage | ToolCallOutputMessage]
-    ):
-        self.messages = messages

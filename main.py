@@ -11,12 +11,11 @@ def main():
     parser.add_argument("--task_type", type=str, choices=["train", "test", "dev"], default="dev")
     parser.add_argument("--task_id", type=int, default=0)
     parser.add_argument("--experiment_name", type=str, default="sample")
-    parser.add_argument("--task_limit", type=int, default=5)
-    parser.add_argument("--max_steps", type=int, default=None)
+    parser.add_argument("--task_limit", type=int, default=None)
     parser.add_argument("--save_dir", type=str, default="./evaluation_results")
     args = parser.parse_args()
     
-    print("==="*50)
+    print("=="*50)
     print(f"📌 Running Agent Mode: {args.agent}")
     print(f"    📍 LLM Core Name: {args.model_name}")
     print(f"    📍 LLM Core Temperature: {args.temperature}")
@@ -25,7 +24,7 @@ def main():
     print(f"    📍 Experiment Name: {args.experiment_name}")
     print(f"    📍 Task Limit: {args.task_limit}")
     print(f"📌 Save Directory: {args.save_dir}")
-    print("==="*50 + "\n\n")
+    print("=="*50 + "\n\n")
     
 
     agent, env_wrapper = setup_pipeline(
@@ -42,7 +41,6 @@ def main():
         env_wrapper=env_wrapper,
         task_limit=args.task_limit,
         experiment_name=args.experiment_name,
-        max_steps=args.max_steps,
         save_dir=args.save_dir
     )
 

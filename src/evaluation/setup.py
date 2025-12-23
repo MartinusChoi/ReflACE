@@ -5,7 +5,7 @@ from ..agent.react import ReActAgent
 from ..agent.reflexion import ReflexionAgent
 from ..llm.openai_client import OpenAIClient
 from ..llm.tools import TOOLS
-from ..prompt.react.system_prompt import react_oneshot, react_zeroshot
+from ..prompt.react.system_prompt import react_oneshot
 from ..prompt.reflexion.system_prompt import reflexion_reflector
 
 # --------------------------------------------------------------------------------------------------------------

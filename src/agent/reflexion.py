@@ -5,7 +5,10 @@ from .react import ReActAgent
 from ..llm.openai_client import OpenAIClient
 from ..env.appworld_env import AppWorldEnv
 from ..core.trajectory import Trajectory
-from ..core.messages import UserMessage, ChatMessageList
+from ..core.messages import (
+    UserMessage,
+    AIMessage,
+)
 from ..prompt.reflexion.input_prompt import reflexion_reflector
 from ..core.reflection import ReflectionHistory
 
@@ -28,7 +31,7 @@ class ReflexionAgent(BaseAgent):
         )
         self._actor = ReActAgent(self.actor_client)
         self.reflector_client = reflector_client
-        self.reflection_history = ReflectionHistory(max_size=3)
+        self.reflection_history = ReflectionHistory(max_size=None)
     
     def _build_reflect_prompt(
         self, 
@@ -55,15 +58,11 @@ class ReflexionAgent(BaseAgent):
         # get response from reflection module llm core with current trajectory
         response = self.reflector_client.get_response(reflection_request.to_chat_prompt())
 
-        if isinstance(response, ChatMessageList):
-            # add current reflection to reflection history
-            # ReflectionHistory maintain max size of history automatically
-            self.reflection_history.add_reflection(messages=response.messages)
-
-        else:
-            # raise error if response is not list of AIMessages
-            # in Reflection Module, we expect only AIMessage not ToolCallMessage
-            raise ValueError(f"Unknown response type: {type(response)}")
+        for message in response:
+            if isinstance(message, AIMessage):
+                self.reflection_history.add_reflection(messages=[message])
+            else:
+                raise ValueError(f"Unexpected message type: {type(message)}")
         
     
     def _evaluator(
@@ -78,7 +77,7 @@ class ReflexionAgent(BaseAgent):
     def run(
         self,
         env_wrapper: AppWorldEnv,
-        max_steps: int = 5
+        max_steps: int = 3
     ) -> Dict[str, Any]:
 
         for _ in range(max_steps):

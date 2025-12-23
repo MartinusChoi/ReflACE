@@ -4,9 +4,10 @@ from ..env.appworld_env import AppWorldEnv
 from ..llm.openai_client import OpenAIClient
 from ..core.playbook import Playbook
 from ..core.trajectory import Trajectory
+from ..core.reflection import ReflectionHistory
+from ..core.messages import ChatMessageList, AIMessage
 from ..prompt.ace.input_prompt import ace_reflector
 from typing import Dict, Any
-
 
 class ACEAgent(BaseAgent):
     """
@@ -17,35 +18,47 @@ class ACEAgent(BaseAgent):
         self,
         actor_client:OpenAIClient,
         reflector_client:OpenAIClient,
+        curator_client:OpenAIClient,
         env:AppWorldEnv,
     ):
         super().__init__(
             actor_client=actor_client    
         )
         self.playbook = Playbook()
+        self.reflection_history = ReflectionHistory(max_size=1)
+        
         self.reflector_client = reflector_client
+        self.curator_client = curator_client
+        
         self._generator = ReActAgent(actor_client=self.actor_client)
     
     def _build_reflect_prompt(
         self,
         instruction:str,
         trajectory:Trajectory,
-        playbook:Playbook
     ) -> str:
         return ace_reflector.template.format(
             instruction=instruction,
             trajectory=trajectory.to_str(),
-            playbook=playbook.get_content()
+            playbook=self.playbook.get_content()
         )
-
 
     def _reflector(
         self,
         env:AppWorldEnv,
         trajectory:Trajectory
     ) -> str:
+        prompt = self._build_reflect_prompt(
+            instruction=env.get_instruction(),
+            trajectory=trajectory,
+        )
 
-        pass
+        response = self.reflector_client.generate(prompt)
+
+        if isinstance(response, ChatMessageList):
+            self.reflection_history.add_reflection(messages=response.messages)
+        else:
+            raise ValueError(f"Unexpected response type: {type(response)}")
     
     def _curator(
         self,

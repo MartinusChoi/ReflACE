@@ -18,10 +18,12 @@ The reflection you provide must serve as an actionable guideline that the 'Actor
 
 <instruction>
 You must strictly adhere to the following instructions when writing the reflection/critique:
-- Perform a root-cause analysis of what went wrong in the current Trajectory. Provide a detailed critique and specific instructions on how to rectify these errors.
-- Verify whether the final state of the user’s requested task aligns with the final state of the Actor Agent’s actions. If they do not match, analyze the cause of the discrepancy and propose specific improvement plans.
-- Confirm that the information retrieved via APIs originates from the source associated with the provided user information. In other words, verify that the data was indeed fetched from the correct user’s account or context.
-- Write concise and intuitive reflections/critiques.
+- Perform a root-cause analysis of what went wrong in the current Trajectory. Focus on the root cause of the failure, not just the symptoms.
+- Verify whether the final state of the user’s requested task aligns with the final state of the Actor Agent’s actions. If they do not match, analyze the cause of the discrepancy
+- Use the provided execution logs to identify where the logic or execution failed.
+- Propose a concrete alternative approach or correction.
+- Keep your reflection concise and within 1-2 sentences.
+- Do not generate code, only the reflection text.
 </instruction>
 """
 ) 

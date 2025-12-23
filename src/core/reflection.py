@@ -20,7 +20,9 @@ class ReflectionHistory:
 
         self.history.append(current_reflection)
 
-        if len(self.history) > self.max_size:
+        if self.max_size is None:
+            pass
+        elif len(self.history) > self.max_size:
             self.history.pop(0)
     
     def get_history(self) -> str:

@@ -1,8 +1,6 @@
 import os
 from typing import List, Dict, Any, Optional
 from ..core.messages import (
-    ChatMessageList, 
-    ToolMessageList,
     ToolCallMessage,
     AIMessage
 )
@@ -59,29 +57,25 @@ class OpenAIClient:
             tools=self.tools,
             input=messages
         )
-        
-        tool_calls = [item for item in response.output if item.type == 'function_call']
 
-        if not tool_calls:
-            messages = []
-
-            for output in response.output:
+        messages = []
+        for output in response.output:
+            if output.type == 'function_call':
+                messages.append(
+                    ToolCallMessage(
+                        msg_type='function_call',
+                        call_id=output.call_id,
+                        name=output.name,
+                        arguments=output.arguments
+                    )
+                )
+            elif output.type == 'message':
                 if hasattr(output, 'content') and output.type == 'message':
                     for content in output.content:
                         if content.type == 'output_text':
                             messages.append(AIMessage(content=content.text))
-            return ChatMessageList(messages)
+            else:
+                raise ValueError(f"Unknown output type: {output.type}")
+        
+        return messages
 
-        else:
-            messages = []
-
-            for tool_call in tool_calls:
-                messages.append(
-                    ToolCallMessage(
-                        msg_type='function_call',
-                        call_id=tool_call.call_id,
-                        name=tool_call.name,
-                        arguments=tool_call.arguments
-                    )
-                )
-            return ToolMessageList(messages)

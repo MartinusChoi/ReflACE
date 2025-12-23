@@ -10,7 +10,6 @@ def run_evaluation(
     env_wrapper:AppWorldEnv,
     task_limit: int = None,
     experiment_name: str = "SampleExperiment",
-    max_steps: int = None,
     save_dir: str = None,
 ):
     """
@@ -50,12 +49,7 @@ def run_evaluation(
             env_wrapper.set_env(task_id=i, experiment_name=experiment_name)
             
             # Run Agent
-            if not max_steps: 
-                max_steps = 15 if isinstance(agent, ReActAgent) else 5
-            run_output = agent.run(
-                env_wrapper=env_wrapper,
-                max_steps=max_steps
-            )
+            run_output = agent.run(env_wrapper=env_wrapper)
             
             if isinstance(agent, ReActAgent):
                 trajectory[current_task_id] = {
