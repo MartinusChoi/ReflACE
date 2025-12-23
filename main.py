@@ -6,25 +6,26 @@ from src.evaluation.pipeline import run_evaluation
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--agent", type=str, choices=["react", "reflexion", "ace", "reflace"], required=True)
-    parser.add_argument("--model_name", type=str, default='gpt-4o')
+    parser.add_argument("--model_name", type=str, default="gpt-4o")
     parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--task_type", type=str, choices=["train", "test", "dev"], default="train")
+    parser.add_argument("--task_type", type=str, choices=["train", "test", "dev"], default="dev")
     parser.add_argument("--task_id", type=int, default=0)
     parser.add_argument("--experiment_name", type=str, default="sample")
-    parser.add_argument("--task_limit", type=int, default=10)
+    parser.add_argument("--task_limit", type=int, default=5)
     parser.add_argument("--max_steps", type=int, default=None)
     parser.add_argument("--save_dir", type=str, default="./evaluation_results")
     args = parser.parse_args()
     
+    print("==="*50)
     print(f"📌 Running Agent Mode: {args.agent}")
-    print(f"    📍 LLM Core: {args.model_name}")
-    print(f"    📍 LLM Temperature: {args.temperature}")
-    print(f"    📍 Max Steps: {args.max_steps}")
+    print(f"    📍 LLM Core Name: {args.model_name}")
+    print(f"    📍 LLM Core Temperature: {args.temperature}")
     print(f"📌 Running Environment: AppWorld")
     print(f"    📍 Task Type: {args.task_type}")
     print(f"    📍 Experiment Name: {args.experiment_name}")
     print(f"    📍 Task Limit: {args.task_limit}")
-    print(f"📌 Save Directory: {args.save_dir}\n\n")
+    print(f"📌 Save Directory: {args.save_dir}")
+    print("==="*50 + "\n\n")
     
 
     agent, env_wrapper = setup_pipeline(

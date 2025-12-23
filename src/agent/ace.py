@@ -4,35 +4,9 @@ from ..env.appworld_env import AppWorldEnv
 from ..llm.openai_client import OpenAIClient
 from ..core.playbook import Playbook
 from ..core.trajectory import Trajectory
+from ..prompt.ace.input_prompt import ace_reflector
 from typing import Dict, Any
 
-PROMPT = {
-    'only_ace' : """
-**Task:**
-{instruction}
-
-**Model Action Trajectory:**
-{trajectory}
-
-**Part of Playbook that's used by the generator to answer the question:**
-{playbook}
-
-**Answer in this exact JSON format:**
-{{
-  "reasoning": "[Your chain of thought / reasoning / thinking process, detailed analysis and calculations]",
-  "error_identification": "[What specifically went wrong in the reasoning?]",
-  "root_cause_analysis": "[Why did this error occur? What concept was misunderstood?]",
-  "correct_approach": "[What should the model have done instead?]",
-  "key_insight": "[What strategy, formula, or principle should be remembered to avoid this error?]",
-  "bullet_tags": [
-    {{"id": "calc-00001", "tag": "helpful"}},
-    {{"id": "fin-00002", "tag": "harmful"}}
-  ]
-}}
-""",
-    'with_reflexion' : """
-"""
-}
 
 class ACEAgent(BaseAgent):
     """
@@ -50,7 +24,7 @@ class ACEAgent(BaseAgent):
         )
         self.playbook = Playbook()
         self.reflector_client = reflector_client
-        self.actor = ReActAgent(actor_client=self.actor_client)
+        self._generator = ReActAgent(actor_client=self.actor_client)
     
     def _build_reflect_prompt(
         self,
@@ -58,9 +32,9 @@ class ACEAgent(BaseAgent):
         trajectory:Trajectory,
         playbook:Playbook
     ) -> str:
-        return PROMPT['only_ace'].format(
+        return ace_reflector.template.format(
             instruction=instruction,
-            trajectory=trajectory.get_content(),
+            trajectory=trajectory.to_str(),
             playbook=playbook.get_content()
         )
 
@@ -71,6 +45,11 @@ class ACEAgent(BaseAgent):
         trajectory:Trajectory
     ) -> str:
 
+        pass
+    
+    def _curator(
+        self,
+    ):
         pass
 
 

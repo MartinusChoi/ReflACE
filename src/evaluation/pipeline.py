@@ -29,7 +29,7 @@ def run_evaluation(
     # set for taking partial evaluation for few tasks
     total_tasks = len(env_wrapper.task_ids)
     if task_limit:
-        print(f"ℹ️ Limiting evaluation to first {task_limit} tasks out of {total_tasks}.")
+        print(f"🗂️ Limiting evaluation to first {task_limit} tasks out of {total_tasks}.")
         total_tasks = min(total_tasks, task_limit)
     print(f"📊 Evaluating on {total_tasks} tasks...")
     
@@ -50,13 +50,12 @@ def run_evaluation(
             env_wrapper.set_env(task_id=i, experiment_name=experiment_name)
             
             # Run Agent
-            if not max_steps: max_steps = 30 if agent == 'react' else 3
+            if not max_steps: 
+                max_steps = 15 if isinstance(agent, ReActAgent) else 5
             run_output = agent.run(
-                env=env_wrapper,
+                env_wrapper=env_wrapper,
                 max_steps=max_steps
             )
-            if not isinstance(agent, ReActAgent): 
-                agent.reset()
             
             if isinstance(agent, ReActAgent):
                 trajectory[current_task_id] = {
@@ -66,16 +65,13 @@ def run_evaluation(
                 trajectory[current_task_id] = {
                     'trajectory': run_output['trajectory'].to_chat_prompt(),
                     'reflection_history' : run_output['reflection_history'],
-                    'action_history' : run_output['action_history']
                 }
             
             # Evaluate
             evaluation = env_wrapper.env.evaluate()
             
             # Check success
-            is_success = evaluation.success
-            
-            if is_success:
+            if evaluation.success:
                 print("    ✅ PASSED")
                 results["passed_task_id"].append(current_task_id)
             else:

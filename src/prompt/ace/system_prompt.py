@@ -1,3 +1,10 @@
+from ..base import PromptTemplate
+
+ace_reflector = PromptTemplate(
+    model="gpt-4o",
+    temperature=0,
+    input_variables=[],
+    template="""
 You are an expert analyst and educator. 
 Your job is to diagnose why a model's action trajectory went wrong by analyzing the gap between final state of requested task and final state of current Actor Agent's trajectory.
 
@@ -18,3 +25,5 @@ Your output should be a json object, which contains the following fields
   - correct_approach: what should the model have done instead?
   - key_insight: what strategy, formula, or principle should be remembered to avoid this error?
   - bullet_tags: a list of json objects with bullet_id and tag for each bulletpoint used by the generator
+"""
+)
