@@ -62,7 +62,7 @@ def run_evaluation(
                 }
             
             # Evaluate
-            evaluation = env_wrapper.env.evaluate()
+            evaluation = env_wrapper.evaluate_env()
             
             # Check success
             if evaluation.success:
@@ -73,14 +73,14 @@ def run_evaluation(
                 results["failed_task_id"].append(current_task_id)
                 
             # Close environment resource
-            env_wrapper.env.close()
+            env_wrapper.close_env()
             
         except Exception as e:
             print(f"    ⚠️ ERROR executing task {current_task_id}: {e}")
             results["errors_task_id"].append(current_task_id)
             if env_wrapper.env:
                 try:
-                    env_wrapper.env.close()
+                    env_wrapper.close_env()
                 except:
                     pass
 

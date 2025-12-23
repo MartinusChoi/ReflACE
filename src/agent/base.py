@@ -13,6 +13,21 @@ class BaseAgent(ABC):
         actor_client: Union[OpenAIClient, Any]
     ):
         self.actor_client = actor_client
+    
+    def _build_prompt(
+        self,
+        env: AppWorldEnv,
+    ) -> str:
+        """
+        Build the prompt for the agent.
+        
+        Args:
+            env: The Appworld environment to run the agent on.
+            
+        Returns:
+            A string containing the prompt.
+        """
+        pass
 
     @abstractmethod
     def run(

@@ -13,6 +13,66 @@ from ..prompt.reflexion.input_prompt import reflexion_reflector
 from ..core.reflection import ReflectionHistory
 
 
+
+
+
+# -------------------------------------------------------------------------------------
+# Reflector Agent Class
+# -------------------------------------------------------------------------------------
+class ReflectorAgent(BaseAgent):
+    """
+    Reflector Agent that use ReActAgent for Actor Module with a Reflection loop
+    """
+
+    def __init__(
+        self, 
+        actor_client: OpenAIClient,
+    ):
+        super().__init__(actor_client=actor_client)
+    
+    def _build_prompt(
+        self, 
+        env_wrapper:AppWorldEnv,
+        trajectory:Trajectory,
+        reflection_history: ReflectionHistory,
+    ) -> str:
+        return reflexion_reflector.template.format(
+            instruction=env_wrapper.get_instruction(),
+            trajectory=trajectory.to_str(),
+            reflection_history=reflection_history.get_history(),
+            success="Success" if env_wrapper.evaluate_env().success else "Failed",
+        )
+
+    def run(
+        self,
+        env_wrapper:AppWorldEnv,
+        trajectory:Trajectory,
+        reflection_history: ReflectionHistory,
+    ) -> ReflectionHistory:
+
+        # create initial reflection module input
+        reflection_request = Trajectory([
+            UserMessage(content=self._build_prompt(env_wrapper, trajectory, reflection_history))
+        ])
+
+        # get response from reflection module llm core with current trajectory
+        response = self.actor_client.get_response(reflection_request.to_chat_prompt())
+
+        for message in response:
+            if isinstance(message, AIMessage):
+                reflection_history.add_reflection(messages=[message])
+            else:
+                raise ValueError(f"Unexpected message type: {type(message)}")
+        
+        return reflection_history
+
+
+
+
+
+
+
+
 # -------------------------------------------------------------------------------------
 # Reflexion Agent Class
 # -------------------------------------------------------------------------------------
@@ -30,47 +90,18 @@ class ReflexionAgent(BaseAgent):
             actor_client=actor_client
         )
         self._actor = ReActAgent(self.actor_client)
-        self.reflector_client = reflector_client
+        self._reflector = ReflectorAgent(reflector_client)
         self.reflection_history = ReflectionHistory(max_size=None)
     
-    def _build_reflect_prompt(
-        self, 
-        env_wrapper:AppWorldEnv,
-        trajectory:Trajectory,
-    ) -> str:
-        return reflexion_reflector.template.format(
-            instruction=env_wrapper.get_instruction(),
-            trajectory=trajectory.to_str(),
-            reflection_history=self.reflection_history.get_history()
-        )
-
-    def _reflector(
-        self,
-        env_wrapper:AppWorldEnv,
-        trajectory:Trajectory,
-    ) -> None:
-
-        # create initial reflection module input
-        reflection_request = Trajectory([
-            UserMessage(content=self._build_reflect_prompt(env_wrapper, trajectory))
-        ])
-
-        # get response from reflection module llm core with current trajectory
-        response = self.reflector_client.get_response(reflection_request.to_chat_prompt())
-
-        for message in response:
-            if isinstance(message, AIMessage):
-                self.reflection_history.add_reflection(messages=[message])
-            else:
-                raise ValueError(f"Unexpected message type: {type(message)}")
-        
+    def _build_prompt(self) -> None:
+        pass
     
     def _evaluator(
         self,
         env_wrapper: AppWorldEnv
     ) -> bool:
         # evaluate agent task results
-        evaluation = env_wrapper.env.evaluate()
+        evaluation = env_wrapper.evaluate_env()
         # return True if task is success, False otherwise
         return evaluation.success
     
@@ -89,14 +120,14 @@ class ReflexionAgent(BaseAgent):
             )
 
             # evaluate action of actor module
-            is_success = self._evaluator(env_wrapper)
-            
-            if is_success: break # if task success, done reflexion loop
+            # if task success, done reflexion loop
+            if self._evaluator(env_wrapper): break 
 
             # reflect on actor action
-            self._reflector(
+            self.reflection_history = self._reflector.run(
                 env_wrapper=env_wrapper,
-                trajectory=action['trajectory']
+                trajectory=action['trajectory'],
+                reflection_history=self.reflection_history,
             )
         
         return {

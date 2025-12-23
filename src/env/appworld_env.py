@@ -1,5 +1,5 @@
 from appworld import AppWorld, load_task_ids
-from typing import Literal, Union
+from typing import Literal, Union, Any
 
 class AppWorldEnv:
     def __init__(
@@ -11,8 +11,8 @@ class AppWorldEnv:
     
     def set_env(
         self,
-        task_id:int=0,
-        experiment_name:str = "sample"
+        task_id:int,
+        experiment_name:str
     ):
         self.experiment_name = experiment_name
         self.env = AppWorld(
@@ -20,6 +20,16 @@ class AppWorldEnv:
             experiment_name=self.experiment_name
         )
         self.cur_task_id = task_id
+    
+    def close_env(
+        self
+    )->None:
+        self.env.close()
+    
+    def evaluate_env(
+        self
+    )->Any:
+        return self.env.evaluate()
     
     def reset_env(self):
         if self.env is None:
@@ -58,32 +68,3 @@ class AppWorldEnv:
             'email' : self.env.task.supervisor.email,
             'phone_number' : self.env.task.supervisor.phone_number
         }
-
-
-def evaluate_agent(
-    agent,
-    env:AppWorldEnv,
-    max_task:Union[int, None] = None
-):
-    success_cnt = 0
-    failed_cnt = 0
-
-    max_task = max_task or len(env.task_ids)
-
-    for i in range(max_task):
-
-        result = agent.run(env=env)
-
-        evaluation = env.env.evaluate()
-
-        success_cnt += evaluation.pass_count
-        failed_cnt += evaluation.fail_count
-        
-        env.step()
-    
-    return {
-        'success_cnt' : success_cnt,
-        'failed_cnt' : failed_cnt,
-        'total_cnt' : len(success_cnt + failed_cnt),
-        'success_rate' : success_cnt / (success_cnt + failed_cnt)
-    }
