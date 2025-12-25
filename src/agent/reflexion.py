@@ -11,8 +11,8 @@ from ..core.messages import (
     ToolCallMessage,
     ToolCallOutputMessage,
 )
-from ..prompt.reflexion.input_prompt import reflexion_user_prompt
-from ..prompt.reflexion.system_prompt import reflexion_system_prompt
+from ..prompt.reflexion.input_prompt import reflexion_reflector_input_prompt
+from ..prompt.reflexion.system_prompt import reflexion_reflector_system_prompt
 from ..core.reflection import ReflectionHistory
 
 
@@ -40,12 +40,19 @@ class ReflectorAgent(BaseAgent):
         trajectory:Trajectory,
         reflection_history: ReflectionHistory,
     ) -> str:
-        return reflexion_user_prompt.template.format(
-            instruction=env_wrapper.get_instruction(),
-            trajectory=trajectory.to_str(),
-            reflection_history=reflection_history.get_history(),
-            success="Success" if env_wrapper.evaluate_env().success else "Failed",
-        )
+        supervisor_info = env_wrapper.get_supervisor_info()   # supervisor information
+        instruction = env_wrapper.get_instruction()           # instruction
+
+        return reflexion_reflector_input_prompt.template.format(
+                first_name = supervisor_info['first_name'],                       # supervisor information
+                last_name = supervisor_info['last_name'],                         # supervisor information
+                email = supervisor_info['email'],                                 # supervisor information
+                phone_number = supervisor_info['phone_number'],                   # supervisor information
+                instruction = instruction,                                        # task instruction
+                success=env_wrapper.evaluate_env().success,                       # task success
+                reflection_history = reflection_history.get_history(),            # added in Reflexion Agent setting
+                trajectory = trajectory.to_str()                                  # added in Reflexion Agent setting
+            )
 
     def run(
         self,
@@ -61,11 +68,17 @@ class ReflectorAgent(BaseAgent):
         ])
 
         # Run ReAct Agent for max_steps
-        reflection_message = self.reflector.run_with_trajectory(
+        reflector_result = self.reflector.run(
+            agent_type='reflector_in_reflexion',
             env_wrapper=env_wrapper,
             max_steps=5,
             trajectory=reflection_trajectory
         )
+
+        if isinstance(reflector_result['trajectory'].messages[-1], AIMessage):
+            reflection_message = reflector_result['trajectory'].messages[-1]
+        else:
+            reflection_message = AIMessage(content="Reflection Failed")
 
         reflection_history.add_reflection(messages=[reflection_message])
 
@@ -123,6 +136,7 @@ class ReflexionAgent(BaseAgent):
         for _ in range(max_steps):
             # actor action, get trajectory of actor action
             action = self._actor.run(
+                agent_type='actor_in_reflexion',
                 env_wrapper=env_wrapper,
                 max_steps=15,
                 reflection_history=self.reflection_history.get_history(),

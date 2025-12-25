@@ -4,8 +4,18 @@ from uuid import uuid4
 class Playbook:
     """
     Manages the long-term memory (Playbook) for the ACE agent.
+
+    Playbook Structure
+    ------------------
+    {
+        <insight_id> : {
+            'tag' : <tag>,
+            'insight' : <insight>
+        }
+    }
     """
     def __init__(self):
+        # initialize empty playbook
         self.insights: Dict[str, Dict[str, Dict[str, str]]] = {}
 
     def get_ids(self) -> List[str]:
@@ -26,6 +36,8 @@ class Playbook:
                 'tag' : 'neutral',
                 'insight' : insight
             }
+        else:
+            raise ValueError(f"Insight {insight} already exists in playbook.")
         
     def update_tag(
         self,
@@ -61,9 +73,9 @@ class Playbook:
         else:
             raise ValueError(f"Insight ID {insight_id} not found in playbook.")
 
-    def to_playbook(self) -> str:
+    def to_str(self) -> str:
         """
-        Return the formatted playbook content for injection into prompts.
+        Return the formatted playbook string content for injection into prompts.
 
         Returns:
             str: The formatted playbook content.

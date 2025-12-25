@@ -49,7 +49,13 @@ def run_evaluation(
             env_wrapper.set_env(task_id=i, experiment_name=experiment_name)
             
             # Run Agent
-            run_output = agent.run(env_wrapper=env_wrapper)
+            if isinstance(agent, ReActAgent):
+                run_output = agent.run(
+                    agent_type='react',
+                    env_wrapper=env_wrapper
+                )
+            else:
+                run_output = agent.run(env_wrapper=env_wrapper)
             
             if isinstance(agent, ReActAgent):
                 trajectory[current_task_id] = {
@@ -68,16 +74,19 @@ def run_evaluation(
             if evaluation.success:
                 print("    ✅ PASSED")
                 results["passed_task_id"].append(current_task_id)
+                trajectory[current_task_id]['evaluation'] = 'passed'
             else:
                 print(f"    ❌ FAILED (Passed Requirements: {evaluation.pass_count}, Failed Requirements: {evaluation.fail_count})")
                 results["failed_task_id"].append(current_task_id)
-                
+                trajectory[current_task_id]['evaluation'] = 'failed'
+            
             # Close environment resource
             env_wrapper.close_env()
             
         except Exception as e:
             print(f"    ⚠️ ERROR executing task {current_task_id}: {e}")
             results["errors_task_id"].append(current_task_id)
+            trajectory[current_task_id]['evaluation'] = 'error'
             if env_wrapper.env:
                 try:
                     env_wrapper.close_env()

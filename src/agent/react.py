@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, Optional, Literal
 import json
 
 from .base import BaseAgent
@@ -11,9 +11,10 @@ from ..core.messages import (
     ToolCallOutputMessage,
 )
 from ..llm.openai_client import OpenAIClient
-from ..prompt.react.input_prompt import (
-    react_agent,
-    reflexion_actor
+from ..prompt.react.input_prompt import react_only_input_prompt
+from ..prompt.reflexion.input_prompt import (
+    reflexion_actor_input_prompt,
+    reflexion_reflector_input_prompt
 )
 
 
@@ -34,33 +35,44 @@ class ReActAgent(BaseAgent):
     
     def _build_prompt(
         self,
+        agent_type: Literal[
+            'react', 
+            'actor_in_reflexion', 
+            'reflector_in_reflexion', 
+            'generator_in_ace', 
+            'reflector_in_ace',
+            'curator_in_ace'
+        ],
         env_wrapper: AppWorldEnv,
-        reflection_history: str = None,
-        playbook: str = None,
+        **kwargs
     )-> str:
         """
         build input prompt for ReAct Agent.
 
         Args:
+            agent_type (Literal): 
+                Type of ReAct Agent.
+                Use this to determine which prompt to use.
             env_wrapper (AppWorldEnv): 
                 Appworld environment wrapper object.
-            reflection_history (str, optional): 
-                Reflection history of previous actions. Defaults to None.
-                Use this when you use ReAct Agent for Actor Module in Reflexion Agent.
+            **kwargs: 
+                Additional keyword arguments.
+                - trajectory: Optional[Trajectory] = None
+                - reflection_history: Optional[str] = None
+                - playbook: Optional[str] = None
 
         Returns:
             str: 
-                Input prompt for ReAct Agent. 
-                If reflection_history is not None, the prompt will include the reflection history.
+                Input prompt for certain ReAct Agent type.
         """
         # get task instruction and supervisor information
         instruction = env_wrapper.get_instruction()           # instruction
         supervisor_info = env_wrapper.get_supervisor_info()   # supervisor information
 
         # build prompt for ReAct Agent
-        if reflection_history is None and playbook is None:
+        if agent_type == 'react':
             # build prompt for ReAct Agent without reflection history
-            return react_agent.template.format(
+            return react_only_input_prompt.template.format(
                 first_name = supervisor_info['first_name'],         # supervisor information
                 last_name = supervisor_info['last_name'],           # supervisor information
                 email = supervisor_info['email'],                   # supervisor information
@@ -69,77 +81,99 @@ class ReActAgent(BaseAgent):
             )
         
         # build prompt for ReAct Core of Reflexion's Actor Module
-        elif reflection_history is not None and playbook is None:
+        elif agent_type == 'actor_in_reflexion':
             # build prompt for ReAct Agent with reflection history : In Reflexion Agent setting
-            return reflexion_actor.template.format(
-                first_name = supervisor_info['first_name'],         # supervisor information
-                last_name = supervisor_info['last_name'],           # supervisor information
-                email = supervisor_info['email'],                   # supervisor information
-                phone_number = supervisor_info['phone_number'],     # supervisor information
-                instruction = instruction,                          # task instruction
-                reflection_history = reflection_history             # added in Reflexion Agent setting
+            return reflexion_actor_input_prompt.template.format(
+                first_name = supervisor_info['first_name'],                       # supervisor information
+                last_name = supervisor_info['last_name'],                         # supervisor information
+                email = supervisor_info['email'],                                 # supervisor information
+                phone_number = supervisor_info['phone_number'],                   # supervisor information
+                instruction = instruction,                                        # task instruction
+                reflection_history = kwargs.get('reflection_history')             # added in Reflexion Agent setting
             )
         
         # build prompt for ReAct Core of ACE's Generator Module
-        elif reflection_history is None and playbook is not None:
+        elif agent_type == 'generator_in_ace':
             # build prompt for ReAct Agent with playbook : In ACE's Generator Module setting
-            return react_agent.template.format(
-                first_name = supervisor_info['first_name'],         # supervisor information
-                last_name = supervisor_info['last_name'],           # supervisor information
-                email = supervisor_info['email'],                   # supervisor information
-                phone_number = supervisor_info['phone_number'],     # supervisor information
-                instruction = instruction,                          # task instruction
-                playbook = playbook                                 # added in ACE's Generator Module setting
-            )
+            raise NotImplementedError("ReflACE's Generator Module is not implemented yet")
+        
+        # build prompt for ReAct Core of ACE's Reflector Module
+        elif agent_type == 'reflector_in_ace':
+            # build prompt for ReAct Agent with playbook : In ACE's Reflector Module setting
+            raise NotImplementedError("ReflACE's Reflector Module is not implemented yet")
         
         else:
             raise NotImplementedError("ReflACE's Actor Module is not implemented yet")
 
     def run(
         self,
+        agent_type: Literal[
+            'react', 
+            'actor_in_reflexion', 
+            'reflector_in_reflexion',
+            'generator_in_ace', 
+            'reflector_in_ace',
+        ],
         env_wrapper: AppWorldEnv,
         max_steps: int = 15,
-        reflection_history: str = None,
-        playbook: str = None,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Run ReAct Agent for max_steps.
 
         Args:
+            agent_type (Literal): 
+                Type of ReAct Agent.
+                Use this to determine which prompt to use.
             env_wrapper (AppWorldEnv): 
                 Appworld environment wrapper object.
             max_steps (int, optional): 
                 Maximum number of steps to run ReAct Agent. Defaults to 30.
-            reflection_history (str, optional): 
-                Reflection history of previous actions. Defaults to None.
-                Use this when you use ReAct Agent for Actor Module in Reflexion Agent.
-            playbook (str, optional): 
-                Playbook of previous actions. Defaults to None.
-                Use this when you use ReAct Agent for Generator Module in ACE Agent.
+            **kwargs (optional): 
+                Keyword arguments.
+
+                trajectory (Optional[Trajectory], optional): 
+                    Trajectory that ReAct will run continue with. Defaults to None.
+                    Use this when you need to continue running based on certain converation history.
+                    (Like Reflexion Agent's Reflector Module)
+                reflection_history (Optional[str], optional): 
+                    Reflection history of previous actions. Defaults to None.
+                    Use this when you use ReAct Agent for Actor Module in Reflexion Agent.
+                playbook (Optional[str], optional): 
+                    Playbook of previous actions. Defaults to None.
+                    Use this when you use ReAct Agent for Generator Module in ACE Agent.
 
         Returns:
             Dict[str, Any]: 
                 Dictionary containing the following keys:
-                - 'finished': bool
                 - 'trajectory': Trajectory
         """
-        # react only prompt
-        if reflection_history is None and playbook is None:
-            prompt = self._build_prompt(env_wrapper=env_wrapper)
-            cur_trajectory = Trajectory(messages=[UserMessage(content=prompt)])
 
-        # reflexion actor prompt
-        elif reflection_history is not None and playbook is None:
-            prompt = self._build_prompt(env_wrapper=env_wrapper, reflection_history=reflection_history)
-            cur_trajectory = Trajectory(messages=[UserMessage(content=prompt)])
+        if 'trajectory' not in kwargs:
+            # react only prompt
+            if agent_type == 'react':
+                prompt = self._build_prompt(
+                    agent_type='react',
+                    env_wrapper=env_wrapper
+                )
+                cur_trajectory = Trajectory(messages=[UserMessage(content=prompt)])
 
-        # ace generator prompt
-        elif reflection_history is None and playbook is not None:
-            prompt = self._build_prompt(env_wrapper=env_wrapper, playbook=playbook)
-            cur_trajectory = Trajectory(messages=[UserMessage(content=prompt)])
-        
+            # reflexion actor prompt
+            elif agent_type == 'actor_in_reflexion':
+                prompt = self._build_prompt(
+                    agent_type='actor_in_reflexion',
+                    env_wrapper=env_wrapper,
+                    reflection_history=kwargs['reflection_history']
+                )
+                cur_trajectory = Trajectory(messages=[UserMessage(content=prompt)])
+
+            # ace generator prompt
+            elif agent_type == 'generator_in_ace':
+                raise NotImplementedError("generator in ACE is not implemented yet")
+            else:
+                raise ValueError("Invalid agent type")
         else:
-            raise NotImplementedError("ReflACE's Actor Module is not implemented yet")
+            cur_trajectory = kwargs['trajectory']
 
         # Run ReAct Agent for max_steps
         is_agent_finished = False
@@ -164,12 +198,15 @@ class ReActAgent(BaseAgent):
                         )
                     )
 
-                    if "complete_task" in code:
+                    if agent_type in ['react', 'actor_in_reflexion', 'generator_in_ace'] and "complete_task" in code:
                         is_agent_finished = True
                         break
 
                 elif isinstance(message, AIMessage):
                     cur_trajectory.append(message)
+                    if agent_type in ['reflector_in_reflexion', 'reflector_in_ace']:    
+                        is_agent_finished = True
+                        break
                 else:
                     raise ValueError(f"Unknown message type: {type(message)}")
             
@@ -178,38 +215,3 @@ class ReActAgent(BaseAgent):
         return {
             'trajectory' : cur_trajectory,
         }
-    
-    def run_with_trajectory(
-        self,
-        env_wrapper: AppWorldEnv,
-        trajectory: Trajectory,
-        max_steps: int = 5,
-    ) -> AIMessage:
-        # Run ReAct Agent for max_steps
-        for step in range(max_steps):
-            # get response from llm core with current trajectory
-            # trajectory : List[UserMessage, AIMessage, ToolCallMessage,ToolCallOutputMessage]
-            response = self.actor_client.get_response(trajectory.to_chat_prompt())
-
-            for message in response:
-                if isinstance(message, ToolCallMessage):
-                    trajectory.append(message)
-
-                    code = json.loads(message.arguments)['code']
-
-                    obs = env_wrapper.action(code)
-
-                    trajectory.append(
-                        ToolCallOutputMessage(
-                            msg_type='function_call_output',
-                            call_id=message.call_id,
-                            output=obs
-                        )
-                    )
-
-                elif isinstance(message, AIMessage):
-                    return message
-                else:
-                    raise ValueError(f"Unknown message type: {type(message)}")
-
-        return AIMessage(content="Reflection Failed.")

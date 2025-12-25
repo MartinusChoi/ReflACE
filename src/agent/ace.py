@@ -7,11 +7,19 @@ from ..core.trajectory import Trajectory
 from ..core.reflection import ReflectionHistory
 from ..core.messages import ChatMessageList, AIMessage
 from ..prompt.ace.input_prompt import ace_reflector
+from ..core.playbook import Playbook
+
 from typing import Dict, Any
 
 class ReflectorAgent(BaseAgent):
     """
-    Reflector Agent for ACE
+    Reflector Agent for ACE.
+
+    Reflector's Mission
+        1. Reflect on the current Generator's trajectory.
+            - Object of Reflection : Trajectory, Feedback of environment, Difference from GT(Ground Truth)
+        2. If there is bullets in playbook, Reflector Agent Tagging the bullets with how this bullets affect the current trajectory.
+            - Tagging : Harmful, Beneficial, Neutral
     """
     def __init__(
         self, 
@@ -31,6 +39,37 @@ class ReflectorAgent(BaseAgent):
             reflection_history=reflection_history.get_history(),
             success="Success" if env_wrapper.evaluate_env().success else "Failed",
         )
+
+class CuratorAgent(BaseAgent):
+    """
+    Curator Agent for ACE
+
+    Curator Agent updates the playbook based on Reflection Insights that created by Reflector Agent.
+
+    Curator Agent work flow:
+        1. 
+    """
+    def __init__(
+        self, 
+        actor_client: OpenAIClient,
+    ):
+        super().__init__(actor_client=actor_client)
+    
+    def _build_prompt(
+        self, 
+        env_wrapper:AppWorldEnv,
+        trajectory:Trajectory,
+        reflection_history: ReflectionHistory,
+    ) -> str:
+        return ""
+
+    def run(
+        self,
+        env_wrapper: AppWorldEnv,
+        trajectory: Trajectory,
+        playbook: Playbook
+    ) -> Playbook:
+        return {}
 
 class ACEAgent(BaseAgent):
     """

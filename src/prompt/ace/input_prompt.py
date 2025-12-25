@@ -1,6 +1,6 @@
 from ..base import PromptTemplate
 
-ace_reflector = PromptTemplate(
+ace_reflector_input_prompt = PromptTemplate(
     model="gpt-4o",
     temperature=0,
     input_variables=["instruction", "trajectory", "playbook"],
@@ -26,5 +26,33 @@ ace_reflector = PromptTemplate(
     {{"id": "fin-00002", "tag": "harmful"}}
   ]
 }}
+"""
+)
+
+
+
+# -------------------------------------------------------------------------------------
+# ReAct Agent Input Prompt Templates for ACE Agent Generator Module Core
+# -------------------------------------------------------------------------------------
+react_with_playbook_input_prompt = PromptTemplate(
+    model="gpt-4o",
+    temperature=0,
+    input_variables=['first_name', 'last_name', 'email', 'phone_number', 'instruction', 'playbook'],
+    template="""
+Using these 'APIs' and 'playbook', now generate code to solve the actual task:
+
+My name is {first_name} {last_name}. 
+My personal email is {email} and phone number is {phone_number}.
+
+**Task**:
+{instruction}
+
+**ACE Playbook**: - Read the Playbook first, then execute the task by explicitly leveraging each relevant section:
+
+<PLAYBOOK>
+
+{playbook}
+
+</PLAYBOOK>
 """
 )
