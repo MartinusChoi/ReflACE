@@ -1,5 +1,6 @@
 from typing import List, Union
 from .messages import BaseMessage, UserMessage, AIMessage, ToolCallMessage, ToolCallOutputMessage
+import json
 
 class Trajectory:
     def __init__(
@@ -23,7 +24,22 @@ class Trajectory:
     def to_str(self) -> str:
         trajectory_str = "<current trajectory>\n"
         for prompt in self.to_chat_prompt():
-            trajectory_str += f"{str(prompt)}\n"
+            if ('role' in prompt) and (prompt['role'] == 'user'):
+                trajectory_str += "<User>\n"
+                trajectory_str += f"{prompt['content']}\n"
+                trajectory_str += "</User>\n"
+            elif ('role' in prompt) and (prompt['role'] == 'assistant'):
+                trajectory_str += "<Assistant>\n"
+                trajectory_str += f"{prompt['content']}\n"
+                trajectory_str += "</Assistant>\n"
+            elif ('type' in prompt) and (prompt['type'] == 'function_call'):
+                trajectory_str += "<Assistant>\n"
+                trajectory_str += f"{json.loads(prompt['arguments'])['code']}\n"
+                trajectory_str += "</Assistant>\n"
+            elif ('type' in prompt) and (prompt['type'] == 'function_call_output'):
+                trajectory_str += "<Environment>\n"
+                trajectory_str += f"{prompt['output']}\n"
+                trajectory_str += "</Environment>\n"
         trajectory_str += "</current trajectory>\n\n"
         return trajectory_str
     

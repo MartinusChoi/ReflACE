@@ -17,9 +17,13 @@ class AppWorldEnv:
         self.experiment_name = experiment_name
         self.env = AppWorld(
             task_id=self.task_ids[task_id],
-            experiment_name=self.experiment_name
+            experiment_name=self.experiment_name,
+            ground_truth_mode="full"
         )
         self.cur_task_id = task_id
+    
+    def get_ground_truth(self):
+        return self.env.task.ground_truth
     
     def close_env(
         self

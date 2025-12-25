@@ -13,6 +13,7 @@ def main():
     parser.add_argument("--experiment_name", type=str, default="sample")
     parser.add_argument("--task_limit", type=int, default=None)
     parser.add_argument("--save_dir", type=str, default="./evaluation_results")
+    parser.add_argument("--use_gt", type=bool, default=False)
     args = parser.parse_args()
     
     print("=="*50)
@@ -33,7 +34,8 @@ def main():
         temperature=args.temperature,
         task_type=args.task_type,
         task_id=args.task_id,
-        experiment_name=args.experiment_name
+        experiment_name=args.experiment_name,
+        use_ground_truth=args.use_gt
     )
     
     run_evaluation(

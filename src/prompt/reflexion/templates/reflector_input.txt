@@ -1,0 +1,26 @@
+Please generate a reflection by analyzing on the Actor Agent's Action Trajectory by analyzing the **Python code**, **execution logs**, **failure report**, and **reflection** of actions.
+
+What to analyze:
+- which API Calls are missing?
+- Was data filltering condition correct?
+- Was sort logic correct?
+- Was all data collected? (Pagination)
+- etc
+
+**Supervisor Information**:
+first name : {first_name}
+last name : {last_name}
+email : {email}
+phone number : {phone_number}
+
+**Task**: 
+{instruction}
+
+**Task Failure Report**: 
+{failure_report}
+
+**Reflection History**: 
+{reflection_history}
+
+**Trajectory (Code & Execution logs)**: 
+{trajectory}

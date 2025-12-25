@@ -5,10 +5,11 @@ from ..agent.react import ReActAgent
 from ..agent.reflexion import ReflexionAgent
 from ..llm.openai_client import OpenAIClient
 from ..llm.tools import TOOLS
-from ..prompt.react.system_prompt import react_only_system_prompt
+from ..prompt.react.system_prompt import react_system_prompt
 from ..prompt.reflexion.system_prompt import (
-    react_with_reflection_system_prompt,
-    reflexion_reflector_system_prompt
+    reflexion_actor_system_prompt,
+    reflexion_reflector_system_prompt,
+    reflexion_reflector_with_gt_system_prompt
 )
 
 # --------------------------------------------------------------------------------------------------------------
@@ -18,43 +19,52 @@ def setup_agent(
     agent: str = "react",
     model_name: str = None,
     temperature: float = None,
+    use_ground_truth: bool = False,
 ):
     """
     Setup the agent.
     """
 
     if agent == 'react':
-        actor_system_prompt = react_only_system_prompt.template
+        actor_system_prompt = react_system_prompt.template
         
         actor_client = OpenAIClient(
-            model_name=model_name if model_name is not None else react_only_system_prompt.model,
-            temperature=temperature if temperature is not None else react_only_system_prompt.temperature,
+            model_name=model_name if model_name is not None else actor_system_prompt.model,
+            temperature=temperature if temperature is not None else actor_system_prompt.temperature,
             tools=TOOLS,
-            system_prompt=actor_system_prompt
+            system_prompt=actor_system_prompt.template
         )
 
         agent = ReActAgent(actor_client)
 
     elif agent == 'reflexion':
-        actor_system_prompt = react_with_reflection_system_prompt.template
-        reflector_system_prompt = reflexion_reflector_system_prompt.template
+        actor_system_prompt = reflexion_actor_system_prompt
+        reflector_system_prompt = reflexion_reflector_system_prompt if not use_ground_truth else reflexion_reflector_with_gt_system_prompt
         
         actor_client = OpenAIClient(
-            model_name=model_name if model_name is not None else react_with_reflection_system_prompt.model,
-            temperature=temperature if temperature is not None else react_with_reflection_system_prompt.temperature,
+            model_name=model_name if model_name is not None else actor_system_prompt.model,
+            temperature=temperature if temperature is not None else actor_system_prompt.temperature,
             tools=TOOLS,
-            system_prompt=actor_system_prompt
+            system_prompt=actor_system_prompt.template
         )
-        reflector_client = OpenAIClient(
-            model_name=model_name if model_name is not None else reflexion_reflector_system_prompt.model,
-            temperature=temperature if temperature is not None else reflexion_reflector_system_prompt.temperature,
-            tools=TOOLS,
-            system_prompt=reflector_system_prompt
-        )
+        if use_ground_truth:
+            reflector_client = OpenAIClient(
+                model_name=model_name if model_name is not None else reflector_system_prompt.model,
+                temperature=temperature if temperature is not None else reflector_system_prompt.temperature,
+                system_prompt=reflector_system_prompt.template
+            )
+        else:
+            reflector_client = OpenAIClient(
+                model_name=model_name if model_name is not None else reflector_system_prompt.model,
+                temperature=temperature if temperature is not None else reflector_system_prompt.temperature,
+                tools=TOOLS,
+                system_prompt=reflector_system_prompt.template
+            )
 
         agent = ReflexionAgent(
             actor_client=actor_client,
             reflector_client=reflector_client,
+            use_ground_truth=use_ground_truth
         )
     elif agent == 'ace':
         raise NotImplementedError()
@@ -88,6 +98,7 @@ def setup_pipeline(
     task_type: str = "dev",
     task_id: int = 0,
     experiment_name: str = "SampleExperiment",
+    use_ground_truth: bool = False,
 ):
     """
     Setup the evaluation pipeline.
@@ -100,7 +111,8 @@ def setup_pipeline(
     agent = setup_agent(
         agent=agent,
         model_name=model_name,
-        temperature=temperature
+        temperature=temperature,
+        use_ground_truth=use_ground_truth
     )
 
     env_wrapper = setup_env(

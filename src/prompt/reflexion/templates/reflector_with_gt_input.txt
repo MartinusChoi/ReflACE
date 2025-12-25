@@ -1,0 +1,31 @@
+Please generate a reflection on the Actor Agent's Action Trajectory by analyzing the **Python code**, **execution logs**, **failure report**, **ground truth** and **reflection** of actions.
+
+**Supervisor Information**:
+first name : {first_name}
+last name : {last_name}
+email : {email}
+phone number : {phone_number}
+
+**Task**: 
+{instruction}
+
+**Task Failure Report**: 
+{failure_report}
+
+**Reflection History**: 
+{reflection_history}
+
+**Ground Truth Api Calls**: 
+{ground_truth_api_calls}
+
+**Groud Truth Required APIs**:
+{ground_truth_required_apis}
+
+**Ground Truth Required Apps**:
+{ground_truth_required_apps}
+
+**Ground Truth Code**: 
+{ground_truth_code}
+
+**Trajectory (Code & Execution logs)**: 
+{trajectory}

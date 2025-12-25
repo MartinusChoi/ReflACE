@@ -87,3 +87,6 @@ class Playbook:
         content += "</Playbook>\n\n"
 
         return content
+    
+    def to_dict(self) -> Dict[str, Dict[str, Dict[str, str]]]:
+        return self.insights

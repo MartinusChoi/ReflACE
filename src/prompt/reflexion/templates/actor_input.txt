@@ -1,0 +1,10 @@
+Using these 'APIs' and 'reflection history' of your previous actions, now generate code to solve the actual task:
+
+My name is {first_name} {last_name}. 
+My personal email is {email} and phone number is {phone_number}.
+
+**Task**:
+{instruction}
+
+**Reflection History**:
+{reflection_history}
