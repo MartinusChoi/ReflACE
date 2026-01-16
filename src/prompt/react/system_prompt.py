@@ -10,3 +10,5 @@ react_system_prompt = PromptTemplate(
     input_variables=[],
     template=Path(__file__).parent.joinpath("templates/react_system.txt").read_text(encoding='utf-8')
 )
+
+REACT_SYSTEM_PROMPT = Path(__file__).parent.joinpath("templates/react_system.txt").read_text(encoding='utf-8')

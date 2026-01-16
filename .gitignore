@@ -6,3 +6,6 @@ experiments/
 .context/
 __pycache__/
 evaluation_results/
+.vscode/
+appworld
+.env
