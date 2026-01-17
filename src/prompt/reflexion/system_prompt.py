@@ -1,6 +1,10 @@
 from ..base import PromptTemplate
 from pathlib import Path
 
+ACTOR_SYSTEM_PROMPT = Path(__file__).parent.joinpath("templates/actor_system.txt").read_text(encoding="utf-8")
+REFLECTOR_SYSTEM_PROMPT = Path(__file__).parent.joinpath("templates/reflector_system.txt").read_text(encoding="utf-8")
+REFLECTOR_WITH_GT_SYSTEM_PROMPT = Path(__file__).parent.joinpath("templates/reflector_with_gt_system.txt").read_text(encoding="utf-8")
+
 # -------------------------------------------------------------------------------------
 # Reflector Module System Prompt Template in Reflexion Agent
 # -------------------------------------------------------------------------------------
