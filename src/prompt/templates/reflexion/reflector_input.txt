@@ -16,8 +16,8 @@ phone number : {phone_number}
 **Task**: 
 {instruction}
 
-**Task Failure Report**: 
-{failure_report}
+**Task Evaluation Report**: 
+{evaluation_report}
 
 **Reflection History**: 
 {reflection_history}

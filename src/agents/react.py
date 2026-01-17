@@ -1,17 +1,11 @@
-from typing import Sequence, Any
+from typing import Sequence, Callable
 
-from langchain_openai import ChatOpenAI
-from langchain.messages import AnyMessage, AIMessage, SystemMessage
-
-from langchain_openai import ChatOpenAI
+from langchain.messages import AnyMessage, AIMessage, SystemMessage, ToolMessage
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
-from appworld import AppWorld
-
-from ..prompt.react.system_prompt import REACT_SYSTEM_PROMPT
-from ..state import State
+from ..state import ReActState
 from .base import BaseAgent
 
 
@@ -22,39 +16,15 @@ class ReActAgent(BaseAgent):
     """
     ReAct Agent Class.
     """
-    def __init__(
-        self,
-        env: AppWorld,
-        system_prompt: str = REACT_SYSTEM_PROMPT,
-        model_config:dict[str, Any] = {
-            'model' : 'gpt-4o',
-            'temperature' : 0.0,
-            'stream_usage' : True
-        }
-    ):
-        self.env = env
-        self.system_prompt = system_prompt
-        self.model_config = model_config
-
-        openai_client = ChatOpenAI(**model_config)
-        self.openai_client_with_tools = openai_client.bind_tools(self._get_tools())
-
-        self.agent: CompiledStateGraph = self._build_agent()
     
     # ----------------------------------------------------------------------------
     # Define Actor Node
     # ----------------------------------------------------------------------------
-    def _get_actor_node(self):
+    def _get_actor_node(self) -> Callable:
         
         # Actor Node
         # ============================================================================================================
-        def _actor(state: State):
-            # if actor called `complete_task()` before, stop without llm response
-            for msg in reversed(state['messages']):
-                if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
-                    for tool_call in msg.tool_calls:
-                        if 'complete_task' in  tool_call['args']['code']:
-                            return None
+        def _actor(state: ReActState):
 
             # create request message list (insert system message in current message history)
             messages: Sequence[AnyMessage] = state['messages']
@@ -99,17 +69,74 @@ class ReActAgent(BaseAgent):
         # ============================================================================================================
 
         return _actor
+    
+
+    # ----------------------------------------------------------------------------
+    # Define Tool Node
+    # ----------------------------------------------------------------------------
+    def _get_tool_node(self):
+        
+        for _tool in self.tool_list:
+            if _tool.name == 'action_tool':
+                action_tool = _tool
+
+        # Tool Node
+        # =============================================================================
+        def _tools(state: ReActState):
+            last_msg: AIMessage = state['messages'][-1]
+            tool_messages = []
+
+            for tool_call in last_msg.tool_calls:
+                if tool_call['name'] == 'action_tool':
+                    try:
+                        tool_message: ToolMessage = ToolMessage(
+                            content=action_tool.invoke(tool_call['args']),
+                            tool_call_id=tool_call['id']
+                        )
+                        tool_messages.append(tool_message)
+                    except Exception as error:
+                        raise error
+                    
+            return {'messages' : tool_messages}
+        # =============================================================================
+        
+        return _tools
+    
+    # ----------------------------------------------------------------------------
+    # Define conditional edge (should continue)
+    # ----------------------------------------------------------------------------
+    def _get_should_continue(self):
+        
+        # should_continue
+        # =============================================================================
+        def _should_continue(state: ReActState):
+
+            for msg in reversed(state['messages']):
+                if isinstance(msg, AIMessage):
+                    last_ai_msg = msg
+                    break
+            
+            if hasattr(last_ai_msg, 'tool_calls') and last_ai_msg.tool_calls:
+                for tool_call in last_ai_msg.tool_calls:
+                    if 'complete_task' in tool_call['args']['code']:
+                        print(f"⭐️ Agent Complete Task! (called `complete_task`)")
+                        return 'end'
+                
+            return 'actor'
+        # =============================================================================
+
+        return _should_continue
 
 
-    def _build_agent(self):
+    def _build_agent(self) -> CompiledStateGraph:
         # ----------------------------------------------------------------------------
         # Get Nodes
         # ----------------------------------------------------------------------------
         _actor = self._get_actor_node()
         _tools = self._get_tool_node()
-
+        
         # ----------------------------------------------------------------------------
-        # Get Conditional Edges
+        # Get conditional edge function
         # ----------------------------------------------------------------------------
         _should_continue = self._get_should_continue()
 
@@ -117,27 +144,28 @@ class ReActAgent(BaseAgent):
         # Define ReAct Workflow
         # ----------------------------------------------------------------------------
         # create graph builder
-        workflow = StateGraph(state_schema=State)
+        workflow = StateGraph(state_schema=ReActState)
 
         # add nodes
-        workflow.add_node("actor", _actor)   # actor
-        workflow.add_node("tools", _tools)   # tool
+        workflow.add_node("actor", _actor)   # actor node
+        workflow.add_node("tools", _tools)   # tool node
 
         # add edges
+        # Use `Command` instance instead state/conditional edge 
         workflow.add_edge(START, "actor")
+        workflow.add_edge('actor', 'tools')
         workflow.add_conditional_edges(
-            'actor',
+            'tools',
             _should_continue,
             {
-                'end' : END,
-                'tools' : 'tools'
+                'actor' : 'actor',
+                'end' : END
             }
         )
-        workflow.add_edge("tools", "actor")
 
         # compile graph and return CompiledStateGraph instance
         return workflow.compile()
     
     
-    def invoke(self, state: State):
+    def invoke(self, state: ReActState) -> ReActState:
         return self.agent.invoke(state)
