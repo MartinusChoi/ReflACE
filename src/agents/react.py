@@ -7,6 +7,8 @@ from langgraph.graph.state import CompiledStateGraph
 
 from ..state import ReActState
 from .base import BaseAgent
+from ..utils.llm import get_response_with_retry
+from ..utils.token_usage import get_token_usage_from_message
 
 
 # --------------------------------------------------------------------------------------------------------
@@ -31,40 +33,21 @@ class ReActAgent(BaseAgent):
             request_messages: Sequence[AnyMessage] = [SystemMessage(content=self.system_prompt)] + messages
 
             # get response from llm client with retry logic
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    # get response
-                    response: AIMessage = self.openai_client_with_tools.invoke(request_messages)
-                    print(f"\n[Actor] ✅ Request succeed on attept {attempt+1}/{max_retries}")
-                    if hasattr(response, 'tool_calls') and response.tool_calls:
-                        print(f"[Actor] 🌏 Actor make tool call. > {len(response.tool_calls)} tool calls")
-                        break
-                    else:
-                        print("[Actor] ⚠️ Actor didn't make tool call. Actor will retry.")
-                except Exception as error:
-                    print(f"[Actor] ⚠️ Request failed on attept {attempt+1}/{max_retries}")
-                    # raise error when attempt hit max retry limit.
-                    if attempt + 1 == max_retries:
-                        print(f"[Actor] ⛔️ Model Request failed. Please Try Later.")
-                        raise error
+            response: AIMessage = get_response_with_retry(
+                model_client=self.openai_client_with_tools,
+                messages=request_messages,
+                max_retries=3
+            )
             
             # get token usages.
-            try:
-                input_tokens = response.usage_metadata['input_tokens']
-                output_tokens = response.usage_metadata['output_tokens']
-                total_tokens = response.usage_metadata['total_tokens']
-                print(f"[Actor] ✅ Token usage is collected successfully.")
-            except Exception as error:
-                print(f"[Actor] ⛔️ Response message doesn't contain token usage metadata.")
-                raise error
+            token_usage = get_token_usage_from_message(response)
             
             # update agent state
             return {
                 'messages' : [response],
-                'input_tokens' : input_tokens,
-                'output_tokens' : output_tokens,
-                'total_tokens' : total_tokens,
+                'input_tokens' : token_usage['input_tokens'],
+                'output_tokens' : token_usage['output_tokens'],
+                'total_tokens' : token_usage['total_tokens'],
             }
         # ============================================================================================================
 

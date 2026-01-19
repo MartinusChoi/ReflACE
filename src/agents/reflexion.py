@@ -7,6 +7,8 @@ from ..prompt.reflexion import (
     REFLECTOR_INPUT_PROMPT
 )
 from ..state import ReActState, ReflexionState
+from ..utils.llm import get_response_with_retry
+from ..utils.token_usage import get_token_usage_from_message
 
 from appworld import AppWorld
 from typing import Any, Callable, Sequence
@@ -40,42 +42,21 @@ class ReflectorModule(BaseAgent):
             request_messages: Sequence[AnyMessage] = [SystemMessage(content=self.system_prompt)] + messages
 
             # get response from llm client
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    # get response
-                    response: AIMessage = self.openai_client_with_tools.invoke(request_messages)
-                    print(f"\n[Reflector] ✅ Request succeed on attept {attempt+1}/{max_retries}")
-                    if hasattr(response, 'tool_calls') and response.tool_calls:
-                        print(f"[Reflector] 🌏 Reflector make tool call. > {len(response.tool_calls)} tool calls")
-                        break
-                    else:
-                        print("[Reflector] 📝 Reflector make reflection.")
-                        break
-                except Exception as error:
-                    print(f"[Reflector] ⚠️ Request failed on attept {attempt+1}/{max_retries}")
+            response: AIMessage = get_response_with_retry(
+                model_client=self.openai_client_with_tools,
+                messages=request_messages,
+                max_retries=3
+            )
 
-                    # raise error when attempt hit max retry limit.
-                    if attempt + 1 == max_retries:
-                        print(f"[Reflector] ⛔️ Model Reqeust failed. Please try later.")
-                        raise error
-            
             # get token usages
-            try:
-                input_tokens = response.usage_metadata['input_tokens']
-                output_tokens = response.usage_metadata['output_tokens']
-                total_tokens = response.usage_metadata['total_tokens']
-                print(f"[Reflector] ✅ Token usage is collected successfully.")
-            except Exception as error:
-                print(f"[Reflector] ⛔️ Response message doesn't contain token usage metadata.")
-                raise error
-            
+            token_usage = get_token_usage_from_message(response)
+
             # update agent state
             return {
                 'messages' : [response],
-                'input_tokens' : input_tokens,
-                'output_tokens' : output_tokens,
-                'total_tokens' : total_tokens,
+                'input_tokens' : token_usage['input_tokens'],
+                'output_tokens' : token_usage['output_tokens'],
+                'total_tokens' : token_usage['total_tokens'],
             }
         # ============================================================================================================
         

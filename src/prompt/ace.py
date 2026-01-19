@@ -2,6 +2,8 @@ from pathlib import Path
 
 GENERATOR_SYSTEM_PROMPT = Path(__file__).parent.joinpath("templates/ace/generator_system.txt").read_text(encoding='utf-8')
 GENERATOR_INPUT_PROMPT = Path(__file__).parent.joinpath("templates/ace/generator_input.txt").read_text(encoding='utf-8')
+GENERATOR_RESPONSE_MODULE_SYSTEM_PROMPT = Path(__file__).parent.joinpath("templates/ace/generator_response_module_system.txt").read_text(encoding='utf-8')
+GENERATOR_RESPONSE_MODULE_INPUT_PROMPT = Path(__file__).parent.joinpath("templates/ace/generator_response_module_input.txt").read_text(encoding='utf-8')
 
 REFLECTOR_SYSTEM_PROMPT = Path(__file__).parent.joinpath("templates/ace/reflector_system.txt").read_text(encoding='utf-8')
 REFLECTOR_INPUT_PROMPT = Path(__file__).parent.joinpath("templates/ace/reflector_input.txt").read_text(encoding='utf-8')

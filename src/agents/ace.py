@@ -1,10 +1,14 @@
 from .base import BaseAgent
 from .react import ReActAgent
 from ..state import ReActState, ACEState
+from ..utils.llm import get_response_with_retry
+from ..utils.token_usage import get_token_usage_from_message
 from ..prompt.ace import (
     # generator prompts
     GENERATOR_INPUT_PROMPT,
     GENERATOR_SYSTEM_PROMPT,
+    GENERATOR_RESPONSE_MODULE_INPUT_PROMPT,
+    GENERATOR_RESPONSE_MODULE_SYSTEM_PROMPT,
     # reflector prompts
     REFLECTOR_INPUT_PROMPT,
     REFLECTOR_SYSTEM_PROMPT,
@@ -34,6 +38,27 @@ class ReflectorModule(BaseAgent):
     """
     Reflector Module in ACE (Agentic Context Engineering) framework.
     """
+    def __init__(
+        self,
+        env: AppWorld,
+        system_prompt: str = REFLECTOR_SYSTEM_PROMPT,
+        model_config: Dict[str, Any] = {
+            'model' : 'gpt-4o',
+            'temperature' : 0.0,
+            'stream_usage' : True
+        }
+    ) -> None:
+        self.env = env
+        self.system_prompt = system_prompt
+        self.model_config = model_config
+
+        self.tool_list = self._get_tool_list()
+
+        self.openai_client = ChatOpenAI(**model_config)
+        self.openai_client_with_tools = self.openai_client.bind_tools(self.tool_list)
+        self.openai_client_with_structured_output = self.openai_client.with_structured_output(
+            ########## NotImplement ##########
+        )
 
     # --------------------------------------------------------------------------------------------------------
     # Define Actor Node
@@ -52,32 +77,62 @@ class ReflectorModule(BaseAgent):
 
             request_messages: Sequence[AnyMessage] = [SystemMessage(content=self.system_prompt)] + state['messages']
 
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    response: AIMessage = self.openai_client_with_tools.invoke(request_messages)
-                    break
-                except Exception as error:
-                    if attempt + 1 == max_retries:
-                        raise error
-            
-            try:
-                input_tokens = response.usage_metadata['input_tokens']
-                output_tokens = response.usage_metadata['output_tokens']
-                total_tokens = response.usage_metadata['total_tokens']
-            except Exception as error:
-                raise error
+            response: AIMessage = get_response_with_retry(
+                model_client=self.openai_client_with_tools,
+                messages=request_messages,
+                max_retries=3
+            )
+
+            token_usage = get_token_usage_from_message(response)
             
             return {
                 'messages' : [response],
-                'input_tokens' : input_tokens,
-                'output_tokens' : output_tokens,
-                'total_tokens' : total_tokens
+                'input_tokens' : token_usage['input_tokens'],
+                'output_tokens' : token_usage['output_tokens'],
+                'total_tokens' : token_usage['total_tokens']
             }
         # ================================================================================================================
         
         return _actor
     
+    # --------------------------------------------------------------------------------------------------------
+    # Define Ressponse Node
+    # --------------------------------------------------------------------------------------------------------
+    def _get_response_node(self) -> Callable:
+        """
+        Create response node that convert response into structured output.
+
+        Return:
+            _response [Callable[ReActState]]
+        """
+
+        # Response Node
+        # ================================================================================================================
+        def _response(state: ReActState) -> ReActState:
+
+            request_messages: Sequence[AnyMessage] = [SystemMessage(content=GENERATOR_RESPONSE_MODULE_SYSTEM_PROMPT)] + [
+                HumanMessage(content=GENERATOR_RESPONSE_MODULE_INPUT_PROMPT.format(
+                    ############# NotImplemented #############
+                ))
+            ]
+
+            response: AIMessage = get_response_with_retry(
+                model_client=self.openai_client_with_structured_output,
+                messages = request_messages,
+                max_retries=3
+            )
+
+            token_usage = get_token_usage_from_message(response)
+            
+            return {
+                'messages' : [response],
+                'input_tokens' : token_usage['input_tokens'],
+                'output_tokens' : token_usage['output_tokens'],
+                'total_tokens' : token_usage['total_tokens']
+            }
+        # ================================================================================================================
+        
+        return _response
 
     # --------------------------------------------------------------------------------------------------------
     # Define Tool Node
@@ -142,7 +197,7 @@ class ReflectorModule(BaseAgent):
             if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
                 return 'tools'
             else:
-                return 'end'
+                return 'response'
         # ================================================================================================================
 
         return _should_continue
@@ -158,6 +213,7 @@ class ReflectorModule(BaseAgent):
         # ----------------------------------------------------
         _actor = self._get_actor_node()
         _tools = self._get_tool_node()
+        _response = self._get_response_node()
 
         # ----------------------------------------------------
         # Get Conditional Edge function
@@ -172,6 +228,7 @@ class ReflectorModule(BaseAgent):
         # add nodes
         workflow.add_node('actor', _actor)
         workflow.add_node('tools', _tools)
+        workflow.add_node('response', _response)
         
         # add edges
         workflow.add_edge(START, 'actor')
@@ -180,10 +237,11 @@ class ReflectorModule(BaseAgent):
             _should_continue,
             {
                 'tools' : 'tools',
-                'end' : END
+                'response' : 'response'
             }
         )
         workflow.add_edge('tools', 'actor')
+        workflow.add_edge('response', END)
 
         # compile workflow
         return workflow.compile()
@@ -385,27 +443,20 @@ class ACEAgent(BaseAgent):
                 ############ NotImplement ############ 
             ))]
 
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    response: AIMessage = curator.invoke(request_messages)
-                    break
-                except Exception as error:
-                    if attempt + 1 == max_retries:
-                        raise error
+            response: AIMessage = get_response_with_retry(
+                model_client=curator,
+                messages=request_messages,
+                max_retries=3
+            )
+
+            token_usage = get_token_usage_from_message(response)
             
-            try:
-                input_tokens = response.usage_metadata['input_tokens']
-                output_tokens = response.usage_metadata['output_tokens']
-                total_tokens = response.usage_metadata['total_tokens']
-            except Exception as error:
-                raise error
             
             return {
                 'curator_output' : dict(response.content),
-                'input_tokens' : input_tokens,
-                'output_tokens' : output_tokens,
-                'total_tokens' : total_tokens
+                'input_tokens' : token_usage['input_tokens'],
+                'output_tokens' : token_usage['output_tokens'],
+                'total_tokens' : token_usage['total_tokens']
             }
         # ================================================================================================================
 

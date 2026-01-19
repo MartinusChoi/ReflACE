@@ -1,3 +1,7 @@
+from typing import Dict
+
+from langchain.messages import AIMessage
+
 TOKEN_PRICE_UNIT = 1000000
 
 TOKEN_PRICE_MAP = {
@@ -25,4 +29,21 @@ def calc_token_price(
         'input_token_price' : input_token_price,
         'output_token_price' : output_token_price,
         'total_token_price' : total_token_price
+    }
+
+def get_token_usage_from_message(message: AIMessage) -> Dict[str, int]:
+
+    try:
+        input_tokens = message.usage_metadata['input_tokens']
+        output_tokens = message.usage_metadata['output_tokens']
+        total_tokens = message.usage_metadata['total_tokens']
+        print(f"[Actor] ✅ Token usage is collected successfully.")
+    except Exception as error:
+        print(f"[Actor] ⛔️ Response message doesn't contain token usage metadata.")
+        raise error
+    
+    return {
+        'input_tokens' : input_tokens,
+        'output_tokens' : output_tokens,
+        'total_tokens' : total_tokens
     }
