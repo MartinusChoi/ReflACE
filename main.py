@@ -6,7 +6,7 @@ from src.tests.evaluate import AppWorldEvalator
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--agent_type", type=str, choices=["react", "reflexion", "ace", "reflace"], required=True)
-    parser.add_argument("--model_name", type=str, default="gpt-4o")
+    parser.add_argument("--model_name", type=str, default="gpt-4.1-mini")
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--dataset_type", type=str, choices=["train", "test", "dev"], default="dev")
     parser.add_argument("--experiment_name", type=str, default="sample")

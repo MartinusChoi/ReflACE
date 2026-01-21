@@ -1,8 +1,9 @@
-from typing import Annotated, Sequence, Dict, Any
+from typing import Annotated, Sequence, List, Dict, Any, TypedDict
 from operator import add
 
-from langchain.agents.middleware import AgentState
 from langchain.messages import AnyMessage
+
+from langgraph.graph.message import add_messages
 
 from .core.playbook import PlayBook
 
@@ -10,16 +11,23 @@ from .core.playbook import PlayBook
 # -----------------------------------------------------------------------------------------------------
 # ReAct Agent State
 # -----------------------------------------------------------------------------------------------------
-class ReActState(AgentState):
+class ReActState(TypedDict):
+    messages: Annotated[List[AnyMessage], add_messages]
+    
     # field for track token usages
     input_tokens: Annotated[int, add]
     output_tokens: Annotated[int, add]
     total_tokens: Annotated[int, add]
 
+    # field for gather latency for each nodes.
+    latency: Annotated[float, add]
+
 # -----------------------------------------------------------------------------------------------------
 # Reflexion Agent State
 # -----------------------------------------------------------------------------------------------------
-class ReflexionState(AgentState):
+class ReflexionState(TypedDict):
+    messages: Annotated[List[AnyMessage], add_messages]
+
     # fields for reflexion agent
     trajectory: Sequence[AnyMessage]
     evaluation: str
@@ -30,10 +38,15 @@ class ReflexionState(AgentState):
     output_tokens: Annotated[int, add]
     total_tokens: Annotated[int, add]
 
+    # field for gather latency for each nodes.
+    latency: Annotated[float, add]
+
 # -----------------------------------------------------------------------------------------------------
 # ACE (Agentic Context Engineering) Agent State
 # -----------------------------------------------------------------------------------------------------
-class ACEState(AgentState):
+class ACEState(TypedDict):
+    messages: Annotated[List[AnyMessage], add_messages]
+
     # field for ace agent
     trajectory: Sequence[AnyMessage]
     evaluation: str
@@ -46,3 +59,6 @@ class ACEState(AgentState):
     input_tokens: Annotated[int, add]
     output_tokens: Annotated[int, add]
     total_tokens: Annotated[int, add]
+
+    # field for gather latency for each nodes.
+    latency: Annotated[float, add]

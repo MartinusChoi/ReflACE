@@ -5,6 +5,8 @@ from langchain.messages import AnyMessage, AIMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
+from appworld.common.time import Timer
+
 from ..state import ReActState
 from .base import BaseAgent
 from ..utils.llm import get_response_with_retry
@@ -38,10 +40,10 @@ class ReActAgent(BaseAgent):
                 messages=request_messages,
                 max_retries=3
             )
-            
+
             # get token usages.
             token_usage = get_token_usage_from_message(response)
-            
+
             # update agent state
             return {
                 'messages' : [response],
@@ -79,7 +81,7 @@ class ReActAgent(BaseAgent):
                         tool_messages.append(tool_message)
                     except Exception as error:
                         raise error
-                    
+
             return {'messages' : tool_messages}
         # =============================================================================
         
@@ -147,7 +149,3 @@ class ReActAgent(BaseAgent):
 
         # compile graph and return CompiledStateGraph instance
         return workflow.compile()
-    
-    
-    def invoke(self, state: ReActState) -> ReActState:
-        return self.agent.invoke(state)

@@ -12,7 +12,11 @@ TOKEN_PRICE_MAP = {
     'gpt-4o-mini' : {
         'input' : 0.15 / TOKEN_PRICE_UNIT,
         'output' : 0.6 / TOKEN_PRICE_UNIT
-    }
+    },
+    'gpt-4.1-mini' : {
+        'input' : 0.40 / TOKEN_PRICE_UNIT,
+        'output' : 1.60 / TOKEN_PRICE_UNIT
+    },
 }
 
 

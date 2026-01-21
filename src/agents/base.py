@@ -8,8 +8,9 @@ from langchain.tools import tool
 from langgraph.graph.state import CompiledStateGraph
 
 from appworld import AppWorld
+from appworld.common.time import Timer
 
-from ..state import ReActState, ReflexionState
+from ..state import ReActState, ReflexionState, ACEState
 
 class BaseAgent(ABC):
     def __init__(
@@ -92,5 +93,11 @@ class BaseAgent(ABC):
         raise NotImplementedError()
     
 
-    def invoke(self, state: Union[ReActState, ReflexionState]):
-        return self.agent.invoke(state)
+    def invoke(self, state: Union[ReActState, ReflexionState, ACEState]):
+        timer = Timer(bypass_freezegun=True, start=True)
+        result = self.agent.invoke(state)
+        latency = timer.stop()
+        return {
+            **result,
+            'latency' : latency
+        }
