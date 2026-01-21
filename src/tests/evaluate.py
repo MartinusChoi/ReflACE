@@ -1,9 +1,9 @@
-from .agents.react import ReActAgent
-from .agents.reflexion import ReflexionAgent
-from .agents.ace import ACEAgent
-from .utils.token_usage import calc_token_price
-from .prompt.react import SYSTEM_PROMPT, INPUT_PROMPT
-from .core.playbook import PlayBook
+from ..agents.react import ReActAgent
+from ..agents.reflexion import ReflexionAgent
+from ..agents.ace import ACEAgent
+from ..utils.token_usage import calc_token_price
+from ..prompt.react import SYSTEM_PROMPT, INPUT_PROMPT
+from ..core.playbook import PlayBook
 
 from langchain.messages import HumanMessage
 
@@ -18,16 +18,22 @@ class AppWorldEvalator:
         agent_type: Literal['react', 'reflexion', 'ace'],
         dataset_type: Literal['train', 'dev'],
         experiment_name: str,
-        first_k_task: int = None
+        first_k_task: int = None,
+        model_config: Dict[str, str | float | bool] = {
+            'model' : 'gpt-4o',
+            'temperature' : 0.0,
+            'stream_usage' : True
+        }
     ) -> None:
         self.agent_type = agent_type
         self.experiment_name = experiment_name
+        self.model_config = model_config
 
         self.task_ids: List[str] = load_task_ids(dataset_name=dataset_type)
         if first_k_task:
             self.task_ids = self.task_ids[:first_k_task]
 
-        self.evaluation: Dict[str, Dict[str, str | int | float]] = {}
+        self.result: Dict[str, Dict[str, str | int | float]] = {}
 
         if self.agent_type == 'ace':
             self.playbook:PlayBook = None       # playbook that retain over task ids in ACEAgent
@@ -57,11 +63,21 @@ class AppWorldEvalator:
             # initialize agent instance with current task AppWorld instance
             # ----------------------------------------------------------------------------------------
             if self.agent_type == 'react':                                    # ReAct Agent
-                agent = ReActAgent(env=env, system_prompt=SYSTEM_PROMPT)
+                agent = ReActAgent(
+                    env=env, 
+                    system_prompt=SYSTEM_PROMPT,
+                    model_config=self.model_config
+                )
             elif self.agent_type == 'reflexion':                              # Reflexion Agent
-                agent = ReflexionAgent(env=env)
+                agent = ReflexionAgent(
+                    env=env,
+                    model_config=self.model_config
+                )
             elif self.agent_type == 'ace':                                    # ACE Agent
-                agent = ACEAgent(env=env)
+                agent = ACEAgent(
+                    env=env,
+                    model_config=self.model_config
+                )
             else:
                 raise ValueError("Unknown Agent Type. It must be one of : 'react', 'reflexion', 'ace'")
             
@@ -87,13 +103,13 @@ class AppWorldEvalator:
             elif self.agent_type == 'ace':                                         # ACE Agent input state
                 input_state = {'playbook' : {} if not self.playbook == None else self.playbook}
 
-            start_time = time.time()
+            start_time = time.perf_counter()
 
             # run agent on task
             result = agent.invoke(input_state)
 
             # get lantency (second)
-            end_time = time.time()
+            end_time = time.perf_counter()
             latency = end_time - start_time
 
             # ----------------------------------------------------------------------------------------
@@ -132,7 +148,7 @@ class AppWorldEvalator:
             # ----------------------------------------------------------------------------------------
             # add evaluation metadata of current task_id
             # ----------------------------------------------------------------------------------------
-            self.evaluation[task_id] = {
+            self.result[task_id] = {
                 'latency' : latency,
                 'input_tokens' : input_tokens,
                 'output_tokens' : output_tokens,
@@ -151,4 +167,4 @@ class AppWorldEvalator:
 
         print(f"✅ All {len(self.task_ids)} tasks are completed!")
 
-        return self.evaluation
+        return self.result
