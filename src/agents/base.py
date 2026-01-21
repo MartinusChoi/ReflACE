@@ -80,9 +80,7 @@ class BaseAgent(ABC):
             
             try:
                 tool_result = f"{self.env.execute(code)}"
-                print(f"[Tool | Action] ✅ Action is performed successfully.")
             except Exception as error:
-                print(f"[Tool | Action] ⛔️ Action Failed.")
                 raise error
 
             return tool_result

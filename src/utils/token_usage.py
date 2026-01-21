@@ -37,9 +37,7 @@ def get_token_usage_from_message(message: AIMessage) -> Dict[str, int]:
         input_tokens = message.usage_metadata['input_tokens']
         output_tokens = message.usage_metadata['output_tokens']
         total_tokens = message.usage_metadata['total_tokens']
-        print(f"[Actor] ✅ Token usage is collected successfully.")
     except Exception as error:
-        print(f"[Actor] ⛔️ Response message doesn't contain token usage metadata.")
         raise error
     
     return {

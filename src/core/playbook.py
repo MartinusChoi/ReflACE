@@ -1,10 +1,13 @@
-from typing import Dict, Any, Sequence
+from typing import Dict, Any, List
 import numpy as np
 
 from langchain_openai import OpenAIEmbeddings
 
 
-def cosine_similarity(vec1, vec2):
+def cosine_similarity(
+    vec1:List[float], 
+    vec2:List[float]
+) -> float:
     vec1 = np.array(vec1)
     vec2 = np.array(vec2)
     
@@ -18,16 +21,19 @@ def cosine_similarity(vec1, vec2):
 
 class PlayBook:
     def __init__(
-        self
+        self,
     ) -> None:
-        self.playbook: Dict[str, Sequence[Dict[str, Any]]] = {
+        self.playbook: Dict[str, List[Dict[str, Any]]] = {
             'STRATEGIES AND HARD RULES' : [],
             'USEFUL CODE SNIPPETS AND TEMPLATES' : [],
             'TROUBLESHOOTING AND PITFALLS' : []
         }
         self.embedding_model = OpenAIEmbeddings(model='text-embedding-3-small')
     
-    def _get_embedding(self, content: str):
+    def _get_embedding(
+        self, 
+        content: str
+    ) -> List[float]:
         return self.embedding_model.embed_query(content)
     
     def add_to_playbook(
@@ -35,17 +41,17 @@ class PlayBook:
         section: str,
         content: str
     ) -> None:
-        embedding = self._get_embedding(content)
+        embedding: List[float] = self._get_embedding(content)
 
-        for idx, bullet in enumerate(self.playbook[section]):
-            if cosine_similarity(embedding, bullet['embedding']) > 0.6:
-                self.playbook[section][idx]['content'] = content
-                self.playbook[section][idx]['embedding'] = embedding
+        for bullet in self.playbook[section]:
+            if cosine_similarity(embedding, bullet['embedding']) >= 0.8:
+                self.playbook[section]['count'] += 1
                 return
         
         self.playbook[section].append({
             'content' : content,
-            'embedding' : embedding
+            'embedding' : embedding,
+            'count' : 0
         })
     
     def to_str(self):

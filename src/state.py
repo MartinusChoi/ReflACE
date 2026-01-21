@@ -1,8 +1,10 @@
-from typing import Annotated, Sequence, Dict
+from typing import Annotated, Sequence, Dict, Any
 from operator import add
 
 from langchain.agents.middleware import AgentState
 from langchain.messages import AnyMessage
+
+from .core.playbook import PlayBook
 
 
 # -----------------------------------------------------------------------------------------------------
@@ -35,9 +37,9 @@ class ACEState(AgentState):
     # field for ace agent
     trajectory: Sequence[AnyMessage]
     evaluation: str
-    playbook: Dict[str, Dict[str, str]]
-    reflector_output: Dict[str, str]
-    curator_output: Dict[str, str]
+    playbook: PlayBook
+    reflection: Dict[str, Any]
+    curation: Dict[str, Any]
 
 
     # field for track token usages

@@ -102,7 +102,6 @@ class ReActAgent(BaseAgent):
             if hasattr(last_ai_msg, 'tool_calls') and last_ai_msg.tool_calls:
                 for tool_call in last_ai_msg.tool_calls:
                     if 'complete_task' in tool_call['args']['code']:
-                        print(f"⭐️ Agent Complete Task! (called `complete_task`)")
                         return 'end'
                 
             return 'actor'

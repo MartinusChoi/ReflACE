@@ -16,8 +16,9 @@ from ..prompt.ace import (
     CURATOR_INPUT_PROMPT,
     CURATOR_SYSTEM_PROMPT
 )
+from ..core.playbook import PlayBook
 
-from typing import Callable, Sequence, Dict, Any
+from typing import Callable, Sequence, Dict, Any, List
 
 from langchain_openai import ChatOpenAI
 
@@ -319,10 +320,12 @@ class ACEAgent(BaseAgent):
         # Generator Module
         # ================================================================================================================
         def _generator(state: ACEState) -> ACEState:
+            _playbook: PlayBook = state['playbook']
 
             try:
                 result_state: ACEState = generator.invoke({
                     'messages' : [HumanMessage(content=GENERATOR_INPUT_PROMPT.format(
+                        playbook = _playbook.to_str()
                         ############# Not Implement #############
                     ))]
                 })
@@ -405,10 +408,12 @@ class ACEAgent(BaseAgent):
         # Reflector Module
         # ================================================================================================================
         def _reflector(state: ACEState) -> ACEState:
+            _playbook = state['playbook']
 
             try:
                 result_state: ReActState = reflector.invoke({
                     'messages' : [HumanMessage(content=REFLECTOR_INPUT_PROMPT.format(
+                        playbook = _playbook.to_str()
                         ############# Not Implement #############
                     ))]
                 })
@@ -416,7 +421,7 @@ class ACEAgent(BaseAgent):
                 raise error
             
             return {
-                'reflector_output' : dict(result_state['messages'][-1]),
+                'reflection' : dict(result_state['messages'][-1]),
                 'input_tokens' : result_state['input_tokens'],
                 'output_tokens' : result_state['output_tokens'],
                 'total_tokens' : result_state['total_tokens']
@@ -439,8 +444,12 @@ class ACEAgent(BaseAgent):
         # ================================================================================================================
         def _curator(state: ACEState) -> ACEState:
 
+            _playbook: PlayBook = state['playbook']
+
             request_messages: Sequence[AnyMessage] = [SystemMessage(content=self.curator_system_prompt)] + [HumanMessage(content=CURATOR_INPUT_PROMPT.format(
-                ############ NotImplement ############ 
+                reflection = state['reflection'],
+                playbook = _playbook.to_str()
+                ############# Not Implement #############
             ))]
 
             response: AIMessage = get_response_with_retry(
@@ -450,13 +459,23 @@ class ACEAgent(BaseAgent):
             )
 
             token_usage = get_token_usage_from_message(response)
-            
+
+            delta_entries: List[Dict[str, Any]] = dict(response.content)
+
+            for delta in delta_entries:
+                if delta['operation'] == 'ADD':
+                    section = delta['section']
+                    content = delta['content']
+                    _playbook.add_to_playbook(section=section, content=content)
+                else:
+                    raise ValueError(f"Unexpected Operation value : {delta['operation']}")
             
             return {
-                'curator_output' : dict(response.content),
+                'curation' : delta_entries,
+                'playbook' : _playbook,
                 'input_tokens' : token_usage['input_tokens'],
                 'output_tokens' : token_usage['output_tokens'],
-                'total_tokens' : token_usage['total_tokens']
+                'total_tokens' : token_usage['total_tokens'],
             }
         # ================================================================================================================
 

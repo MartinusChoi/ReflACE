@@ -272,8 +272,6 @@ class ReflexionAgent(BaseAgent):
                     evaluation_report += "\n"
                 evaluation_report += "---\n\n"
             
-            print(f"[Evaluator] 📊 Evaluation Report: \n{evaluation_report}")
-            
             return {'evaluation' : evaluation_report}
         # ==========================================================================================
         
